@@ -586,7 +586,6 @@
   <div class="nav-tab active" data-panel="summary"  onclick="showPanel('summary')">📊 Weekly Summary</div>
   <div class="nav-tab"        data-panel="calendar" onclick="showPanel('calendar')">📅 Calendar</div>
   <div class="nav-tab"        data-panel="gantt"    onclick="showPanel('gantt')">📈 Gantt Timeline</div>
-  <div class="nav-tab"        data-panel="fleet-1"  onclick="showPanel('fleet-1')"><span class="nav-dot" style="background:#1565C0"></span>Fleet #1</div>
   <div class="nav-tab"        data-panel="fleet-6"  onclick="showPanel('fleet-6')"><span class="nav-dot" style="background:#2E7D32"></span>Fleet #6</div>
   <div class="nav-tab"        data-panel="fleet-9"  onclick="showPanel('fleet-9')"><span class="nav-dot" style="background:#6A1B9A"></span>Fleet #9</div>
   <div class="nav-tab"        data-panel="fleet-10" onclick="showPanel('fleet-10')"><span class="nav-dot" style="background:#E65100"></span>Fleet #10</div>
@@ -662,7 +661,6 @@
   </div>
 
   <!-- FLEET PANELS -->
-  <div class="panel" id="panel-fleet-1"><div class="no-data"><div class="no-data-icon">⏳</div><p>Loading…</p></div></div>
   <div class="panel" id="panel-fleet-6"><div class="no-data"><div class="no-data-icon">⏳</div><p>Loading…</p></div></div>
   <div class="panel" id="panel-fleet-9"><div class="no-data"><div class="no-data-icon">⏳</div><p>Loading…</p></div></div>
   <div class="panel" id="panel-fleet-10"><div class="no-data"><div class="no-data-icon">⏳</div><p>Loading…</p></div></div>
@@ -761,6 +759,10 @@ function clearStatus() {
 // ============================================================
 function renderAll() {
   if (!appData) return;
+  // SANDBOX: Fleet #1 removed from this experimentation copy
+  if (Array.isArray(appData.fleets)) {
+    appData.fleets = appData.fleets.filter(f => String(f.num) !== '1');
+  }
   renderSummary();
   renderCalendar();
   renderGantt();
