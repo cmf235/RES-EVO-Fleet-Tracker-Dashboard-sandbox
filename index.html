@@ -33,6 +33,7 @@
       --misc: #E65100;
       --misc-bg: #FFF3E0;
       --cal-line: #a8b0bd;
+      --inv-green: #1a7f37;
     }
     [data-theme="dark"] {
       --bg: #0f1117;
@@ -53,6 +54,7 @@
       --roustabout-bg: #1f0d2e;
       --misc-bg: #2a1a00;
       --cal-line: #5d6478;
+      --inv-green: #3fb950;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -436,6 +438,8 @@
     .inv-table tbody tr:hover { background: var(--surface2); }
     .inv-table tr.inv-low { background: var(--rigdown-bg); }
     .inv-table td.inv-need { color: var(--rigdown); font-weight: 800; }
+    .inv-table td.inv-onhand { color: var(--inv-green); font-weight: 800; }
+    .inv-table th.inv-onhand { color: #56d364; font-weight: 800; }
     @media (max-width: 640px) { .inv-head { flex-direction: column; } }
 
 
@@ -864,21 +868,30 @@ function loadConsumables() {
 }
 
 function consumablesHtml(headers, data, isSnapshot, errMsg) {
-  var NEED = 4;
-  var total = data.length, needCount = 0;
+  function colOf(name){ for (var i=0;i<headers.length;i++){ if (String(headers[i]||'').trim().toUpperCase().indexOf(name)===0) return i; } return -1; }
+  var iHand = colOf('ON HAND'), iNeed = colOf('NEED ORDERED'), iOrd = colOf('AMOUNT ORDERED');
+  var total = data.length, waiting = 0;
   var bodyRows = data.map(function(r){
-    var need = parseFloat(r[NEED]) || 0;
-    var low = need > 0;
-    if (low) needCount++;
+    var need = parseFloat(r[iNeed]) || 0;
+    var ord  = parseFloat(r[iOrd]) || 0;
+    if (need > 0 && ord > 0) waiting++;
     var tds = headers.map(function(h, i){
       var val = r[i] == null ? '' : String(r[i]);
-      var align = i >= 2 ? ' style="text-align:center"' : '';
-      var cls = (i === NEED && low) ? ' class="inv-need"' : '';
-      return '<td'+align+cls+'>'+esc(val)+'</td>';
+      var style = i >= 2 ? ' style="text-align:center"' : '';
+      var cls = [];
+      if (i === iHand) cls.push('inv-onhand');
+      if (i === iNeed && need > 0) cls.push('inv-need');
+      var c = cls.length ? ' class="'+cls.join(' ')+'"' : '';
+      return '<td'+style+c+'>'+esc(val)+'</td>';
     }).join('');
-    return '<tr'+(low?' class="inv-low"':'')+'>'+tds+'</tr>';
+    return '<tr'+(need>0?' class="inv-low"':'')+'>'+tds+'</tr>';
   }).join('');
-  var head = headers.map(function(h){ return '<th>'+esc(String(h||''))+'</th>'; }).join('');
+  var head = headers.map(function(h, i){
+    var label = String(h||'');
+    if (label.trim().toUpperCase().indexOf('AMOUNT ORDERED BY EWS')===0) label = 'AMOUNT ORDERED';
+    var c = (i === iHand) ? ' class="inv-onhand"' : '';
+    return '<th'+c+'>'+esc(label)+'</th>';
+  }).join('');
   var banner = isSnapshot
     ? '<span class="inv-banner warn">&#9888;&#65039; '+esc("Couldn't reach the live sheet"+(errMsg?' ('+errMsg+')':''))+' &mdash; showing a saved snapshot (2026-07-22). Confirm the sheet is shared &ldquo;anyone with the link&rdquo;.</span>'
     : '<span class="inv-banner ok">&#128994; Live from Google Sheets</span>';
@@ -886,7 +899,7 @@ function consumablesHtml(headers, data, isSnapshot, errMsg) {
     + '<div><div class="inv-title">&#128230; Consumables Inventory</div><div class="inv-sub">'+banner+'</div></div>'
     + '<div class="inv-stats">'
     + '<div class="inv-stat"><div class="inv-stat-num">'+total+'</div><div class="inv-stat-lbl">Line Items</div></div>'
-    + '<div class="inv-stat"><div class="inv-stat-num" style="color:var(--rigdown)">'+needCount+'</div><div class="inv-stat-lbl">Need Ordering</div></div>'
+    + '<div class="inv-stat"><div class="inv-stat-num" style="color:var(--misc)">'+waiting+'</div><div class="inv-stat-lbl">Waiting On Delivery</div></div>'
     + '</div></div>'
     + '<div class="inv-table-wrap"><table class="inv-table"><thead><tr>'+head+'</tr></thead><tbody>'+bodyRows+'</tbody></table></div>';
 }
