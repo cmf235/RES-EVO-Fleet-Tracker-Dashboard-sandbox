@@ -440,6 +440,43 @@
     .inv-table td.inv-need { color: var(--rigdown); font-weight: 800; }
     .inv-table td.inv-onhand { color: var(--inv-green); font-weight: 800; }
     .inv-table th.inv-onhand { color: #56d364; font-weight: 800; }
+    /* ===== IRON INVENTORY TRACKER (sandbox add-on) ===== */
+    .inv-table td.ic, .inv-table th.ic { text-align: center; }
+    .iron-subnav { display: flex; gap: 4px; flex-wrap: wrap; margin: 14px 0 16px; border-bottom: 2px solid var(--border); }
+    .iron-subtab { appearance: none; border: none; background: transparent; color: var(--text-secondary); font-weight: 700; font-size: 13px; padding: 9px 16px; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; }
+    .iron-subtab:hover { color: var(--text); }
+    .iron-subtab.active { color: var(--primary); border-bottom-color: var(--primary); }
+    .iron-matrix td, .iron-matrix th { white-space: nowrap; }
+    .iron-matrix .iron-sticky { position: sticky; left: 0; z-index: 2; background: var(--surface); text-align: left; box-shadow: 1px 0 0 var(--border); }
+    .iron-matrix thead .iron-sticky { background: var(--header-bg); color: var(--header-text); z-index: 3; }
+    .iron-matrix .iron-type { font-weight: 600; }
+    .iron-fleet { padding: 0 !important; text-align: center; }
+    .iron-fleet-name { display: block; background: var(--primary); color: #fff; padding: 7px 12px; font-size: 12px; font-weight: 800; }
+    .iron-fleet-pad { display: block; background: var(--rigup); color: #fff; padding: 4px 12px; font-size: 11px; font-weight: 600; }
+    .iron-c { text-align: center; color: var(--text-secondary); }
+    .iron-c.iron-pos { color: var(--text); font-weight: 800; }
+    .iron-barcell { width: 24%; min-width: 120px; }
+    .iron-bar-wrap { background: var(--surface2); border-radius: 4px; height: 15px; overflow: hidden; display: flex; min-width: 8px; }
+    .iron-seg { height: 100%; }
+    .iron-zero { color: var(--text-secondary); font-size: 11px; }
+    .iron-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; font-size: 12px; }
+    .iron-leg { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); font-weight: 600; }
+    .iron-dot { width: 11px; height: 11px; border-radius: 3px; display: inline-block; flex-shrink: 0; }
+    .iron-overview { display: flex; gap: 32px; align-items: center; flex-wrap: wrap; justify-content: center; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px; box-shadow: var(--shadow); margin-bottom: 18px; }
+    .iron-donut { position: relative; width: 180px; height: 180px; flex-shrink: 0; }
+    .iron-donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .iron-donut-num { font-size: 34px; font-weight: 800; line-height: 1; }
+    .iron-donut-lbl { font-size: 10px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: var(--text-secondary); margin-top: 3px; }
+    .iron-tot-legend { min-width: 250px; }
+    .iron-tot-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .iron-tot-row:last-child { border-bottom: none; }
+    .iron-tot-state { flex: 1; font-weight: 600; }
+    .iron-tot-val { font-weight: 800; min-width: 44px; text-align: right; }
+    .iron-tot-pct { color: var(--text-secondary); min-width: 52px; text-align: right; font-size: 12px; }
+    .iron-tbl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    @media (max-width: 820px) { .iron-tbl-grid { grid-template-columns: 1fr; } }
+    .iron-tbl-title { font-weight: 800; font-size: 14px; margin-bottom: 8px; }
+
     @media (max-width: 640px) { .inv-head { flex-direction: column; } }
 
 
@@ -641,6 +678,7 @@
   <div class="nav-tab"        data-panel="fleet-13" onclick="showPanel('fleet-13')"><span class="nav-dot" style="background:#00695C"></span>Fleet #13</div>
   <div class="nav-tab"        data-panel="fleet-15" onclick="showPanel('fleet-15')"><span class="nav-dot" style="background:#AD1457"></span>Fleet #15</div>
   <div class="nav-tab"        data-panel="consumables" onclick="showPanel('consumables')">📦 Consumables Inventory</div>
+  <div class="nav-tab"        data-panel="iron" onclick="showPanel('iron')">🔧 Iron Inventory Tracker</div>
 </nav>
 
 <!-- ===== MAIN ===== -->
@@ -708,6 +746,7 @@
   <div class="panel" id="panel-fleet-13"><div class="no-data"><div class="no-data-icon">⏳</div><p>Loading…</p></div></div>
   <div class="panel" id="panel-fleet-15"><div class="no-data"><div class="no-data-icon">⏳</div><p>Loading…</p></div></div>
   <div class="panel" id="panel-consumables"><div class="no-data"><div class="no-data-icon">⏳</div><p>Loading inventory…</p></div></div>
+  <div class="panel" id="panel-iron"><div class="no-data"><div class="no-data-icon">🔧</div><p>Loading iron inventory…</p></div></div>
 </main>
 
 <script>
@@ -765,6 +804,7 @@ function refreshData() {
   const btn = document.getElementById('refreshBtn');
   btn.classList.add('spinning');
   loadConsumables();
+  loadIron();
 
   if (API_URL === 'PASTE_APPS_SCRIPT_URL_HERE') {
     setStatus('warning', '⚠️ Dashboard running in DEMO MODE — API_URL not yet configured. Real data will appear after the Apps Script Web App is deployed and the URL is pasted in.');
@@ -892,6 +932,168 @@ function consumablesHtml(headers, data, isSnapshot, errMsg) {
     + '<div class="inv-stat"><div class="inv-stat-num" style="color:var(--misc)">'+waiting+'</div><div class="inv-stat-lbl">Waiting On Delivery</div></div>'
     + '</div></div>'
     + '<div class="inv-table-wrap"><table class="inv-table"><thead><tr>'+head+'</tr></thead><tbody>'+bodyRows+'</tbody></table></div>';
+}
+
+// ============================================================
+//  IRON INVENTORY TRACKER  (live from EWS Asset Tracking sheet)
+// ============================================================
+var IRON_SHEET = '1c91kuPxopI-aPNaRQHLgzvdpqHpU5aZqjqqA2sRuXqs';
+var IRON_TABS = { deployed:'783802398', rebuild:'1509964271', available:'1139183602', totals:'1875470645' };
+var IRON_COLORS = { Deployed:'#F4A62A', Complete:'#2E9E4F', Completed:'#2E9E4F', Paint:'#4A90D9', Rebuild:'#3949AB', Machine:'#00838F', 'Not Started':'#9AA0A6', Unstarted:'#9AA0A6' };
+var ironData = null;
+var ironSub = (typeof localStorage!=='undefined' && localStorage.getItem('evo-iron-sub-sandbox')) || 'deployed';
+
+function ironNum(x){ var n=parseFloat(String(x==null?'':x).replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:n; }
+
+function loadIron(){
+  if(!document.getElementById('panel-iron')) return;
+  var keys=Object.keys(IRON_TABS);
+  Promise.all(keys.map(function(k){
+    var url='https://docs.google.com/spreadsheets/d/'+IRON_SHEET+'/export?format=csv&gid='+IRON_TABS[k];
+    return fetch(url,{cache:'no-store'}).then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); }).then(function(t){ return parseCSV_(t); });
+  })).then(function(res){
+    ironData={ deployed:parseDeployed_(res[0]), rebuild:parseRebuild_(res[1]), available:parseAvailable_(res[2]), totals:parseTotals_(res[3]), live:true };
+    renderIron();
+  }).catch(function(err){ ironData={ error:err.message }; renderIron(); });
+}
+
+function parseDeployed_(rows){
+  var fleets=[], types=[], counts={}, seen={}, cur=null;
+  rows.forEach(function(r){
+    var c0=(r[0]||'').trim();
+    if(/fleet\s*#?\s*\d/i.test(c0)){ cur={label:c0, pad:(r[1]||'').trim()}; fleets.push(cur); counts[c0]={}; return; }
+    if(!cur) return;
+    var type=(r[5]||'').trim();
+    if(!type || type.length>45) return;
+    counts[cur.label][type]=(r[6]||'').trim();
+    if(!seen[type]){ seen[type]=1; types.push(type); }
+  });
+  return { fleets:fleets, types:types, counts:counts };
+}
+function parseRebuild_(rows){
+  var out=[];
+  rows.forEach(function(r){
+    var type=(r[4]||'').trim();
+    if(!type || /^type$/i.test(type) || type.length>45) return;
+    out.push({ type:type, count:ironNum(r[5]), complete:ironNum(r[6]), paint:ironNum(r[7]), rebuild:ironNum(r[8]), machine:ironNum(r[9]), notStarted:ironNum(r[10]) });
+  });
+  return out;
+}
+function parseAvailable_(rows){
+  var out=[];
+  rows.forEach(function(r){
+    var type=(r[4]||'').trim();
+    if(!type || /^type$/i.test(type) || type.length>45) return;
+    out.push({ type:type, avail:ironNum(r[5]) });
+  });
+  return out;
+}
+function parseTotals_(rows){
+  var out=[];
+  rows.forEach(function(r){
+    var desc=(r[1]||'').trim(), val=(r[2]||'').trim();
+    if(!desc || /description/i.test(desc) || val==='' || isNaN(parseFloat(val))) return;
+    out.push({ state:desc, value:ironNum(r[2]) });
+  });
+  return out;
+}
+
+function showIronSub(name){ ironSub=name; try{ localStorage.setItem('evo-iron-sub-sandbox', name); }catch(e){} renderIron(); }
+
+function renderIron(){
+  var host=document.getElementById('panel-iron'); if(!host) return;
+  var subs=[['deployed','Deployed'],['processing','Processing'],['available','Available'],['overview','Asset Overview']];
+  var nav=subs.map(function(s){ return '<button class="iron-subtab'+(ironSub===s[0]?' active':'')+'" onclick="showIronSub(&#39;'+s[0]+'&#39;)">'+s[1]+'</button>'; }).join('');
+  var banner;
+  if(ironData && ironData.live) banner='<span class="inv-banner ok">&#128994; Live from EWS Asset Tracking</span>';
+  else if(ironData && ironData.error) banner='<span class="inv-banner warn">&#9888;&#65039; '+esc("Couldn't load the asset sheet ("+ironData.error+").")+'</span>';
+  else banner='<span class="inv-banner warn">Loading…</span>';
+  var body;
+  if(!ironData || ironData.error) body='<div class="no-data"><div class="no-data-icon">&#128295;</div><p>'+((ironData&&ironData.error)?'Could not load the asset sheet.':'Loading iron inventory…')+'</p></div>';
+  else if(ironSub==='processing') body=renderIronProcessing();
+  else if(ironSub==='available') body=renderIronAvailable();
+  else if(ironSub==='overview') body=renderIronOverview();
+  else body=renderIronDeployed();
+  host.innerHTML='<div class="inv-head"><div><div class="inv-title">&#128295; Iron Inventory Tracker</div><div class="inv-sub">'+banner+'</div></div></div>'
+    +'<div class="iron-subnav">'+nav+'</div><div class="iron-body">'+body+'</div>';
+}
+
+function renderIronDeployed(){
+  var d=ironData.deployed;
+  if(!d||!d.fleets.length) return '<div class="no-data"><p>No deployed equipment found.</p></div>';
+  var head='<th class="iron-sticky">Equipment</th>'+d.fleets.map(function(f){
+    return '<th class="iron-fleet"><span class="iron-fleet-name">'+esc(f.label)+'</span><span class="iron-fleet-pad">'+esc(f.pad||'&mdash;')+'</span></th>';
+  }).join('');
+  var body=d.types.map(function(t){
+    var cells=d.fleets.map(function(f){
+      var v=(d.counts[f.label]||{})[t]; var n=ironNum(v);
+      return '<td class="iron-c'+(n>0?' iron-pos':'')+'">'+((v==null||v==='')?'0':esc(String(v)))+'</td>';
+    }).join('');
+    return '<tr><td class="iron-sticky iron-type">'+esc(t)+'</td>'+cells+'</tr>';
+  }).join('');
+  return '<div class="inv-table-wrap"><table class="inv-table iron-matrix"><thead><tr>'+head+'</tr></thead><tbody>'+body+'</tbody></table></div>';
+}
+
+function ironStack(segs,total,maxTotal){
+  if(total<=0) return '<span class="iron-zero">0</span>';
+  var w=Math.max(3,Math.round(total/maxTotal*100));
+  var inner=segs.filter(function(s){return s.v>0;}).map(function(s){
+    return '<span class="iron-seg" style="width:'+(s.v/total*100)+'%;background:'+s.color+'" title="'+esc(s.name)+': '+s.v+'"></span>';
+  }).join('');
+  return '<div class="iron-bar-wrap" style="width:'+w+'%">'+inner+'</div>';
+}
+
+function renderIronProcessing(){
+  var rows=ironData.rebuild||[];
+  if(!rows.length) return '<div class="no-data"><p>No processing data.</p></div>';
+  var maxCount=Math.max(1,Math.max.apply(null,rows.map(function(r){return r.count;})));
+  var head='<th>Equipment</th><th class="ic">Count</th><th class="ic">Complete</th><th class="ic">Paint</th><th class="ic">Rebuild</th><th class="ic">Machine</th><th class="ic">Not Started</th><th>Distribution</th>';
+  var body=rows.map(function(r){
+    var segs=[{name:'Complete',v:r.complete,color:IRON_COLORS.Complete},{name:'Paint',v:r.paint,color:IRON_COLORS.Paint},{name:'Rebuild',v:r.rebuild,color:IRON_COLORS.Rebuild},{name:'Machine',v:r.machine,color:IRON_COLORS.Machine},{name:'Not Started',v:r.notStarted,color:IRON_COLORS['Not Started']}];
+    return '<tr><td>'+esc(r.type)+'</td><td class="ic" style="font-weight:800">'+r.count+'</td><td class="ic">'+r.complete+'</td><td class="ic">'+r.paint+'</td><td class="ic">'+r.rebuild+'</td><td class="ic">'+r.machine+'</td><td class="ic">'+r.notStarted+'</td><td class="iron-barcell">'+ironStack(segs,r.count,maxCount)+'</td></tr>';
+  }).join('');
+  return stateLegend(['Complete','Paint','Rebuild','Machine','Not Started'])+'<div class="inv-table-wrap"><table class="inv-table"><thead><tr>'+head+'</tr></thead><tbody>'+body+'</tbody></table></div>';
+}
+
+function renderIronAvailable(){
+  var rows=ironData.available||[];
+  if(!rows.length) return '<div class="no-data"><p>No available data.</p></div>';
+  var maxV=Math.max(1,Math.max.apply(null,rows.map(function(r){return r.avail;})));
+  var body=rows.map(function(r){
+    var w=r.avail>0?Math.max(3,Math.round(r.avail/maxV*100)):0;
+    return '<tr><td>'+esc(r.type)+'</td><td class="ic" style="font-weight:800">'+r.avail+'</td><td class="iron-barcell"><div class="iron-bar-wrap" style="width:'+w+'%"><span class="iron-seg" style="width:100%;background:var(--primary)"></span></div></td></tr>';
+  }).join('');
+  return '<div class="inv-table-wrap"><table class="inv-table"><thead><tr><th>Equipment</th><th class="ic">Available</th><th>&nbsp;</th></tr></thead><tbody>'+body+'</tbody></table></div>';
+}
+
+function stateLegend(states){
+  return '<div class="iron-legend">'+states.map(function(s){ return '<span class="iron-leg"><span class="iron-dot" style="background:'+(IRON_COLORS[s]||'#999')+'"></span>'+esc(s)+'</span>'; }).join('')+'</div>';
+}
+
+function renderIronOverview(){
+  var totals=ironData.totals||[];
+  var sum=totals.reduce(function(a,b){return a+b.value;},0);
+  var r=70, circ=2*Math.PI*r, off=0;
+  var arcs=totals.map(function(t){
+    var len=sum>0?t.value/sum*circ:0, col=IRON_COLORS[t.state]||'#999';
+    var seg='<circle r="'+r+'" cx="90" cy="90" fill="transparent" stroke="'+col+'" stroke-width="26" stroke-dasharray="'+len+' '+(circ-len)+'" stroke-dashoffset="'+(-off)+'"></circle>';
+    off+=len; return seg;
+  }).join('');
+  var donut='<div class="iron-donut"><svg width="180" height="180" viewBox="0 0 180 180" style="transform:rotate(-90deg)">'+arcs+'</svg>'
+    +'<div class="iron-donut-center"><div class="iron-donut-num">'+sum+'</div><div class="iron-donut-lbl">Total Assets</div></div></div>';
+  var legend='<div class="iron-tot-legend">'+totals.map(function(t){
+    var pct=sum>0?(t.value/sum*100).toFixed(1):'0';
+    return '<div class="iron-tot-row"><span class="iron-dot" style="background:'+(IRON_COLORS[t.state]||'#999')+'"></span><span class="iron-tot-state">'+esc(t.state)+'</span><span class="iron-tot-val">'+t.value+'</span><span class="iron-tot-pct">'+pct+'%</span></div>';
+  }).join('')+'</div>';
+  var rb=ironData.rebuild||[];
+  function tbl(title,cols){
+    var head=cols.map(function(c,i){ return '<th'+(i>0?' class="ic"':'')+'>'+c.h+'</th>'; }).join('');
+    var b=rb.map(function(row){ return '<tr>'+cols.map(function(c,i){ return i===0?'<td>'+esc(row.type)+'</td>':'<td class="ic">'+(row[c.k]||0)+'</td>'; }).join('')+'</tr>'; }).join('');
+    return '<div class="iron-tbl-card"><div class="iron-tbl-title">'+title+'</div><div class="inv-table-wrap"><table class="inv-table"><thead><tr>'+head+'</tr></thead><tbody>'+b+'</tbody></table></div></div>';
+  }
+  var tA=tbl('Count / Complete / Paint',[{h:'Equipment',k:'type'},{h:'Count',k:'count'},{h:'Complete',k:'complete'},{h:'Paint',k:'paint'}]);
+  var tB=tbl('Rebuild / Machine / Unstarted',[{h:'Equipment',k:'type'},{h:'Rebuild',k:'rebuild'},{h:'Machine',k:'machine'},{h:'Not Started',k:'notStarted'}]);
+  return '<div class="iron-overview">'+donut+legend+'</div><div class="iron-tbl-grid">'+tA+tB+'</div>';
 }
 
 function renderAll() {
