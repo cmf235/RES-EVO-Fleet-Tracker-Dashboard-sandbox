@@ -755,6 +755,11 @@
 // ============================================================
 const API_URL = 'https://script.google.com/macros/s/AKfycbxzRn4DcbgvNJm432aNPTYE91QWNlrA79s8KG_aMtgYTtbFRqh57l76l8fH_QMWHCqMUg/exec';
 const CONSUMABLES_CSV = 'https://docs.google.com/spreadsheets/d/1CMaUWBn1nuJBenNoPntFcLkxMsBP9N5r9pEaynnFyUE/export?format=csv&gid=1240111420';
+var IRON_SHEET = '1c91kuPxopI-aPNaRQHLgzvdpqHpU5aZqjqqA2sRuXqs';
+var IRON_TABS = { deployed:'783802398', rebuild:'1509964271', available:'1139183602', totals:'1875470645' };
+var IRON_COLORS = { Deployed:'#F4A62A', Complete:'#2E9E4F', Completed:'#2E9E4F', Paint:'#4A90D9', Rebuild:'#3949AB', Machine:'#00838F', 'Not Started':'#9AA0A6', Unstarted:'#9AA0A6' };
+var ironData = null;
+var ironSub = (typeof localStorage!=='undefined' && localStorage.getItem('evo-iron-sub-sandbox')) || 'deployed';
 const UPLOAD_URL = ''; // SANDBOX: set to the deployed Apps Script upload endpoint to enable persistent, shared file storage
 
 // ============================================================
@@ -937,11 +942,6 @@ function consumablesHtml(headers, data, isSnapshot, errMsg) {
 // ============================================================
 //  IRON INVENTORY TRACKER  (live from EWS Asset Tracking sheet)
 // ============================================================
-var IRON_SHEET = '1c91kuPxopI-aPNaRQHLgzvdpqHpU5aZqjqqA2sRuXqs';
-var IRON_TABS = { deployed:'783802398', rebuild:'1509964271', available:'1139183602', totals:'1875470645' };
-var IRON_COLORS = { Deployed:'#F4A62A', Complete:'#2E9E4F', Completed:'#2E9E4F', Paint:'#4A90D9', Rebuild:'#3949AB', Machine:'#00838F', 'Not Started':'#9AA0A6', Unstarted:'#9AA0A6' };
-var ironData = null;
-var ironSub = (typeof localStorage!=='undefined' && localStorage.getItem('evo-iron-sub-sandbox')) || 'deployed';
 
 function ironNum(x){ var n=parseFloat(String(x==null?'':x).replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:n; }
 
