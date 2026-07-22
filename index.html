@@ -393,6 +393,30 @@
     .detail-val.empty { color: var(--text-secondary); font-style: italic; font-weight: 400; font-size: 13px; }
 
     .sub-header { padding: 8px 18px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-secondary); background: var(--surface2); border-bottom: 1px solid var(--border); }
+    /* ===== RIG UP DRAWING + CERTIFICATION PACKET (sandbox add-on) ===== */
+    .fleet-files-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
+    @media (max-width: 780px) { .fleet-files-grid { grid-template-columns: 1fr; } }
+    .sc-header.drawing { background: var(--primary-light); border-bottom-color: var(--primary); color: var(--primary); }
+    .sc-header.cert    { background: var(--roustabout-bg); border-bottom-color: var(--roustabout); color: var(--roustabout); }
+    .file-body { padding: 16px 18px; }
+    .file-dropzone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 26px 16px; text-align: center; cursor: pointer; color: var(--text-secondary); font-size: 13px; background: var(--surface2); transition: border-color .15s, color .15s; }
+    .file-dropzone:hover { border-color: var(--primary); color: var(--primary); }
+    .file-dropzone .dz-icon { font-size: 30px; display: block; margin-bottom: 8px; }
+    .drawing-preview img { width: 100%; max-height: 360px; object-fit: contain; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface2); display: block; }
+    .drawing-preview .change-hint { text-align: center; font-size: 11px; color: var(--text-secondary); margin-top: 6px; cursor: pointer; }
+    .drawing-preview .change-hint:hover { color: var(--primary); }
+    .file-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; font-size: 13px; }
+    .file-row .file-name { font-weight: 600; word-break: break-all; }
+    .file-row .file-name.empty { font-weight: 400; font-style: italic; color: var(--text-secondary); }
+    .file-btn-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+    .file-btn { flex: 1 1 auto; min-width: 150px; text-align: center; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--primary); background: var(--primary); color: #fff; font-weight: 600; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+    .file-btn.secondary { background: transparent; color: var(--primary); }
+    .file-btn.disabled { opacity: .4; cursor: not-allowed; pointer-events: none; }
+    .file-link-btn { background: none; border: none; color: var(--primary); font-weight: 600; font-size: 12px; cursor: pointer; padding: 0; text-decoration: underline; white-space: nowrap; }
+    .file-status { margin-top: 8px; font-size: 12px; color: var(--text-secondary); min-height: 14px; }
+    .file-note code { background: var(--surface2); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
+    .file-note { margin-top: 14px; font-size: 11px; color: var(--misc); background: var(--misc-bg); border-radius: 6px; padding: 8px 12px; line-height: 1.5; }
+
 
     /* ===== NO DATA ===== */
     .no-data { text-align: center; padding: 48px 20px; color: var(--text-secondary); }
@@ -673,6 +697,7 @@
 //  CONFIG — Replace with your deployed Apps Script Web App URL
 // ============================================================
 const API_URL = 'https://script.google.com/macros/s/AKfycbxzRn4DcbgvNJm432aNPTYE91QWNlrA79s8KG_aMtgYTtbFRqh57l76l8fH_QMWHCqMUg/exec';
+const UPLOAD_URL = ''; // SANDBOX: set to the deployed Apps Script upload endpoint to enable persistent, shared file storage
 
 // ============================================================
 //  CONSTANTS
@@ -1352,8 +1377,131 @@ function fleetPanel(f) {
     + '<div class="fleet-detail-grid">'
     + sideCard(ru, '🟢&nbsp; Rig Up',   'rigup')
     + sideCard(rd, '🔴&nbsp; Rig Down', 'rigdown')
-    + '</div>';
+    + '</div>'
+    + filesSection(f);
 }
+// ============================================================
+//  RIG UP DRAWING + CERTIFICATION PACKET  (sandbox add-on)
+// ============================================================
+// Files picked in the browser are held here so preview + download work even
+// before the upload backend exists. Once UPLOAD_URL is set and the Apps Script
+// backend returns f.files.<kind> = {url,name}, those shared links take over.
+var pendingFiles = {};
+var FILE_ACCEPT = { drawing:'image/png,.png', dwg:'.dwg,application/acad,image/vnd.dwg', cert:'.zip,application/zip,application/x-zip-compressed' };
+
+function fileMeta(f, kind) {
+  var rec = (f.files || {})[kind];
+  if (rec && rec.url) return { url:rec.url, name:rec.name || kind, source:'server' };
+  var pend = (pendingFiles[f.num] || {})[kind];
+  if (pend) return { url:pend.url, name:pend.name, source:'local' };
+  return null;
+}
+
+function filesSection(f) {
+  var num = f.num;
+  var draw = fileMeta(f,'drawing'), dwg = fileMeta(f,'dwg'), cert = fileMeta(f,'cert');
+
+  var previewHtml = draw
+    ? '<div class="drawing-preview"><img src="' + esc(draw.url) + '" alt="Rig up drawing">'
+      + '<div class="change-hint" onclick="pickAndUpload(&#39;' + num + '&#39;,&#39;drawing&#39;)">Replace drawing</div></div>'
+    : '<div class="file-dropzone" onclick="pickAndUpload(&#39;' + num + '&#39;,&#39;drawing&#39;)"><span class="dz-icon">&#x1F5BC;&#xFE0F;</span>Click to upload rig up drawing<br><span style="font-size:11px">PNG image</span></div>';
+
+  var drawingCard = '<div class="section-card">'
+    + '<div class="sc-header drawing">&#x1F4D0;&nbsp; Rig Up Drawing</div>'
+    + '<div class="file-body">'
+    + previewHtml
+    + '<div class="file-row"><span>DWG (CAD): <span class="file-name' + (dwg ? '' : ' empty') + '">' + (dwg ? esc(dwg.name) : 'none uploaded') + '</span></span>'
+    + '<button class="file-link-btn" onclick="pickAndUpload(&#39;' + num + '&#39;,&#39;dwg&#39;)">' + (dwg ? 'Replace' : 'Upload DWG') + '</button></div>'
+    + '<div class="file-btn-row">'
+    + '<button class="file-btn' + (draw ? '' : ' disabled') + '" onclick="downloadFile(&#39;' + num + '&#39;,&#39;drawing&#39;)">&#x2B07; Download Drawing</button>'
+    + '<button class="file-btn secondary' + (dwg ? '' : ' disabled') + '" onclick="downloadFile(&#39;' + num + '&#39;,&#39;dwg&#39;)">&#x2B07; Download DWG</button>'
+    + '</div>'
+    + '<div class="file-status" id="status-drawing-' + num + '"></div>'
+    + '</div></div>';
+
+  var certZone = cert
+    ? '<div class="file-row"><span>Packet: <span class="file-name">' + esc(cert.name) + '</span></span>'
+      + '<button class="file-link-btn" onclick="pickAndUpload(&#39;' + num + '&#39;,&#39;cert&#39;)">Replace</button></div>'
+    : '<div class="file-dropzone" onclick="pickAndUpload(&#39;' + num + '&#39;,&#39;cert&#39;)"><span class="dz-icon">&#x1F4E6;</span>Click to upload Certification Packet<br><span style="font-size:11px">.zip archive</span></div>';
+
+  var certCard = '<div class="section-card">'
+    + '<div class="sc-header cert">&#x1F4CB;&nbsp; Certification Packet</div>'
+    + '<div class="file-body">'
+    + certZone
+    + '<div class="file-btn-row">'
+    + '<button class="file-btn' + (cert ? '' : ' disabled') + '" onclick="downloadFile(&#39;' + num + '&#39;,&#39;cert&#39;)">&#x2B07; Download Certification Packet</button>'
+    + '</div>'
+    + '<div class="file-status" id="status-cert-' + num + '"></div>'
+    + '</div></div>';
+
+  return '<div class="fleet-files-grid">' + drawingCard + certCard + '</div>' + backendNoteBlock();
+}
+
+function backendNoteBlock() {
+  if (typeof UPLOAD_URL !== 'undefined' && UPLOAD_URL) return '';
+  return '<div class="file-note" style="margin-top:14px">&#9888;&#65039; Uploads currently preview &amp; download in your browser only &mdash; they are <b>not saved or shared</b> yet. Deploy the Apps Script backend and set <code>UPLOAD_URL</code> to store files per fleet and share them with your team.</div>';
+}
+
+function pickAndUpload(num, kind) {
+  var input = document.createElement('input');
+  input.type = 'file';
+  input.accept = FILE_ACCEPT[kind] || '';
+  input.style.display = 'none';
+  input.onchange = function() {
+    if (input.files && input.files[0]) handleUpload(num, kind, input.files[0]);
+    if (input.parentNode) input.parentNode.removeChild(input);
+  };
+  document.body.appendChild(input);
+  input.click();
+}
+
+function handleUpload(num, kind, file) {
+  pendingFiles[num] = pendingFiles[num] || {};
+  pendingFiles[num][kind] = { file:file, name:file.name, url:URL.createObjectURL(file) };
+  rerenderFleet(num);
+
+  var statusEl = document.getElementById('status-' + (kind === 'dwg' ? 'drawing' : kind) + '-' + num);
+  if (typeof UPLOAD_URL === 'undefined' || !UPLOAD_URL) {
+    if (statusEl) statusEl.textContent = '✔ ' + file.name + ' loaded locally (not saved — backend not connected).';
+    return;
+  }
+  if (statusEl) statusEl.textContent = '⏳ Uploading ' + file.name + '…';
+  var reader = new FileReader();
+  reader.onload = function() {
+    var base64 = String(reader.result).split(',')[1] || '';
+    fetch(UPLOAD_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action:'upload', fleet:num, kind:kind, filename:file.name, mimeType:file.type || 'application/octet-stream', dataBase64:base64 })
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(res){
+      if (!res || !res.ok) throw new Error((res && res.error) || 'Upload failed');
+      if (statusEl) statusEl.textContent = '✔ Saved: ' + (res.name || file.name);
+      refreshData();
+    })
+    .catch(function(err){ if (statusEl) statusEl.textContent = '❌ ' + err.message; });
+  };
+  reader.readAsDataURL(file);
+}
+
+function rerenderFleet(num) {
+  var f = ((appData && appData.fleets) || []).filter(function(x){ return String(x.num) === String(num); })[0];
+  var el = document.getElementById('panel-fleet-' + num);
+  if (f && el) el.innerHTML = fleetPanel(f);
+}
+
+function downloadFile(num, kind) {
+  var f = ((appData && appData.fleets) || []).filter(function(x){ return String(x.num) === String(num); })[0];
+  if (!f) return;
+  var meta = fileMeta(f, kind);
+  if (!meta || !meta.url) return;
+  if (meta.source === 'server') { window.open(meta.url, '_blank'); return; }
+  var a = document.createElement('a');
+  a.href = meta.url; a.download = meta.name || (kind + '-fleet' + num);
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+
 function dRow(label, value, end, isDate) {
   let display = value;
   let c = '';
