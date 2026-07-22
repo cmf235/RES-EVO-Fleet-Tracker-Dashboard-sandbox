@@ -34,6 +34,7 @@
       --misc-bg: #FFF3E0;
       --cal-line: #a8b0bd;
       --inv-green: #1a7f37;
+      --good: #1a7f37; --alert: #C62828; --caution: #B26A00; --ctx: #6b7280; --heat-rgb: 21,101,192;
     }
     [data-theme="dark"] {
       --bg: #0f1117;
@@ -55,6 +56,7 @@
       --misc-bg: #2a1a00;
       --cal-line: #5d6478;
       --inv-green: #3fb950;
+      --good: #3fb950; --alert: #f47174; --caution: #e3a008; --ctx: #8892a4; --heat-rgb: 96,165,250;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -477,6 +479,38 @@
     @media (max-width: 820px) { .iron-tbl-grid { grid-template-columns: 1fr; } }
     .iron-tbl-title { font-weight: 800; font-size: 14px; margin-bottom: 8px; }
 
+    /* ===== SKILL-DRIVEN ENHANCEMENTS (KPI cards, insight, filter, heatmap, ranked bars) ===== */
+    .kpi-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .kpi-card { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--ctx); border-radius: var(--radius); padding: 12px 16px; box-shadow: var(--shadow); }
+    .kpi-card.primary { border-left-color: var(--primary); }
+    .kpi-card.good { border-left-color: var(--good); }
+    .kpi-card.alert { border-left-color: var(--alert); }
+    .kpi-card.caution { border-left-color: var(--caution); }
+    .kpi-val { font-size: 28px; font-weight: 800; line-height: 1.05; }
+    .kpi-card.good .kpi-val { color: var(--good); }
+    .kpi-card.alert .kpi-val { color: var(--alert); }
+    .kpi-card.caution .kpi-val { color: var(--caution); }
+    .kpi-card.primary .kpi-val { color: var(--primary); }
+    .kpi-lbl { font-size: 10px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: var(--text-secondary); margin-top: 3px; }
+    .kpi-sub { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+    .inv-insight { font-size: 13px; color: var(--text-secondary); margin: -4px 0 14px; }
+    .inv-insight b { color: var(--text); font-weight: 800; }
+    .inv-cap { font-size: 11px; color: var(--text-secondary); margin-top: 8px; }
+    .inv-tools { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+    .inv-search { flex: 1; min-width: 180px; max-width: 320px; padding: 7px 11px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font-size: 13px; }
+    .inv-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--text-secondary); cursor: pointer; user-select: none; white-space: nowrap; }
+    .inv-count { font-size: 11px; color: var(--text-secondary); margin-left: auto; }
+    .iron-heat-num { font-weight: 700; }
+    .iron-total-col { font-weight: 800; background: var(--surface2); }
+    .rank-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px 10px; box-shadow: var(--shadow); margin-bottom: 18px; }
+    .rank-row { display: grid; grid-template-columns: 128px 1fr 96px; align-items: center; gap: 12px; padding: 7px 0; }
+    .rank-lbl { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 7px; }
+    .rank-track { background: var(--surface2); border-radius: 5px; height: 22px; overflow: hidden; }
+    .rank-fill { height: 100%; border-radius: 5px 0 0 5px; min-width: 2px; }
+    .rank-val { font-size: 13px; font-weight: 800; text-align: right; }
+    .rank-val span { color: var(--text-secondary); font-weight: 600; font-size: 12px; }
+    @media (max-width: 560px) { .rank-row { grid-template-columns: 100px 1fr 78px; gap: 8px; } }
+
     @media (max-width: 640px) { .inv-head { flex-direction: column; } }
 
 
@@ -760,6 +794,7 @@ var IRON_TABS = { deployed:'783802398', rebuild:'1509964271', available:'1139183
 var IRON_COLORS = { Deployed:'#F4A62A', Complete:'#2E9E4F', Completed:'#2E9E4F', Paint:'#4A90D9', Rebuild:'#3949AB', Machine:'#00838F', 'Not Started':'#9AA0A6', Unstarted:'#9AA0A6' };
 var ironData = null;
 var ironSub = (typeof localStorage!=='undefined' && localStorage.getItem('evo-iron-sub-sandbox')) || 'deployed';
+var consumHeaders = null, consumRows = null, consumSnapshot = false, consumErr = '', consumFilter = '', consumNeedOnly = false;
 const UPLOAD_URL = ''; // SANDBOX: set to the deployed Apps Script upload endpoint to enable persistent, shared file storage
 
 // ============================================================
@@ -887,29 +922,80 @@ function parseCSV_(text) {
   return rows;
 }
 
+function kpiStrip(cards){
+  return '<div class="kpi-strip">'+cards.map(function(c){
+    return '<div class="kpi-card '+(c.tone||'')+'">'
+      + '<div class="kpi-val">'+c.val+'</div>'
+      + '<div class="kpi-lbl">'+esc(c.lbl)+'</div>'
+      + (c.sub?'<div class="kpi-sub">'+c.sub+'</div>':'')
+      + '</div>';
+  }).join('')+'</div>';
+}
+
 function loadConsumables() {
-  var el = document.getElementById('panel-consumables');
-  if (!el) return;
+  if (!document.getElementById('panel-consumables')) return;
   fetch(CONSUMABLES_CSV, { cache:'no-store' })
     .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); })
     .then(function(txt){
       var rows = parseCSV_(txt).filter(function(r){ return r.some(function(c){ return (c||'').trim()!==''; }); });
-      var headers = rows.length ? rows[0] : CONSUMABLES_HEADERS;
-      el.innerHTML = consumablesHtml(headers, rows.slice(1), false);
+      consumHeaders = rows.length ? rows[0] : CONSUMABLES_HEADERS;
+      consumRows = rows.slice(1); consumSnapshot = false; consumErr = '';
+      renderConsumables();
     })
     .catch(function(err){
-      el.innerHTML = consumablesHtml(CONSUMABLES_HEADERS, CONSUMABLES_SNAPSHOT, true, err.message);
+      consumHeaders = CONSUMABLES_HEADERS; consumRows = CONSUMABLES_SNAPSHOT; consumSnapshot = true; consumErr = err.message;
+      renderConsumables();
     });
+}
+
+function renderConsumables(){
+  var el = document.getElementById('panel-consumables');
+  if (!el || !consumHeaders) return;
+  el.innerHTML = consumablesHtml(consumHeaders, consumRows || [], consumSnapshot, consumErr);
+  applyConsumFilter();
+}
+
+// DOM-based filtering: never rebuilds innerHTML on keystroke, so the search box keeps focus.
+function applyConsumFilter(){
+  var inp = document.getElementById('consumSearch');
+  var chk = document.getElementById('consumNeed');
+  if (inp) consumFilter = inp.value;
+  if (chk) consumNeedOnly = chk.checked;
+  var q = (consumFilter||'').trim().toLowerCase();
+  var rows = document.querySelectorAll('#panel-consumables tr.consum-row');
+  var shown = 0;
+  rows.forEach(function(tr){
+    var okText = !q || (tr.getAttribute('data-txt')||'').indexOf(q) !== -1;
+    var okNeed = !consumNeedOnly || tr.getAttribute('data-need') === '1';
+    var vis = okText && okNeed;
+    tr.style.display = vis ? '' : 'none';
+    if (vis) shown++;
+  });
+  var cnt = document.getElementById('consumCount');
+  if (cnt) cnt.textContent = 'Showing ' + shown + ' of ' + rows.length;
 }
 
 function consumablesHtml(headers, data, isSnapshot, errMsg) {
   function colOf(name){ for (var i=0;i<headers.length;i++){ if (String(headers[i]||'').trim().toUpperCase().indexOf(name)===0) return i; } return -1; }
   var iHand = colOf('ON HAND'), iNeed = colOf('NEED ORDERED'), iOrd = colOf('AMOUNT ORDERED');
-  var total = data.length, waiting = 0;
-  var bodyRows = data.map(function(r){
+  var total = data.length, waiting = 0, needCount = 0;
+  // Decorate then action-first sort: items needing reorder float to top (largest shortage first).
+  var rowsMeta = data.map(function(r, idx){
     var need = parseFloat(r[iNeed]) || 0;
     var ord  = parseFloat(r[iOrd]) || 0;
+    if (need > 0) needCount++;
     if (need > 0 && ord > 0) waiting++;
+    return { r:r, need:need, idx:idx };
+  });
+  rowsMeta.sort(function(a,b){
+    var an = a.need>0?1:0, bn = b.need>0?1:0;
+    if (an!==bn) return bn-an;
+    if (an===1 && b.need!==a.need) return b.need-a.need;
+    return a.idx-b.idx;
+  });
+  var bodyRows = rowsMeta.map(function(m){
+    var r = m.r, need = m.need;
+    var txt = String(r.join(' ')||'').toLowerCase();
     var tds = headers.map(function(h, i){
       var val = r[i] == null ? '' : String(r[i]);
       var style = i >= 2 ? ' style="text-align:center"' : '';
@@ -919,7 +1005,7 @@ function consumablesHtml(headers, data, isSnapshot, errMsg) {
       var c = cls.length ? ' class="'+cls.join(' ')+'"' : '';
       return '<td'+style+c+'>'+esc(val)+'</td>';
     }).join('');
-    return '<tr'+(need>0?' class="inv-low"':'')+'>'+tds+'</tr>';
+    return '<tr class="consum-row'+(need>0?' inv-low':'')+'" data-need="'+(need>0?'1':'0')+'" data-txt="'+esc(txt)+'">'+tds+'</tr>';
   }).join('');
   var head = headers.map(function(h, i){
     var label = String(h||'');
@@ -930,13 +1016,28 @@ function consumablesHtml(headers, data, isSnapshot, errMsg) {
   var banner = isSnapshot
     ? '<span class="inv-banner warn">&#9888;&#65039; '+esc("Couldn't reach the live sheet"+(errMsg?' ('+errMsg+')':''))+' &mdash; showing a saved snapshot (2026-07-22). Confirm the sheet is shared &ldquo;anyone with the link&rdquo;.</span>'
     : '<span class="inv-banner ok">&#128994; Live from Google Sheets</span>';
+  var stocked = total - needCount;
+  var insight = needCount>0
+    ? '&#9888;&#65039; <b>'+needCount+'</b> of '+total+' items need reordering'+(waiting>0?' · <b>'+waiting+'</b> already on order':'')
+    : '&#9989; All '+total+' items are stocked — nothing to reorder right now';
+  var kpis = kpiStrip([
+    { val: needCount, lbl:'Needs Reorder', sub:'below safety stock', tone: needCount>0?'alert':'good' },
+    { val: waiting, lbl:'Waiting on Delivery', sub:'ordered, not received', tone:'caution' },
+    { val: stocked, lbl:'Fully Stocked', sub:'no action needed', tone:'good' },
+    { val: total, lbl:'Line Items', sub:'SKUs tracked', tone:'primary' }
+  ]);
+  var tools = '<div class="inv-tools">'
+    + '<input id="consumSearch" class="inv-search" type="text" placeholder="Filter parts…" value="'+esc(consumFilter)+'" oninput="applyConsumFilter()">'
+    + '<label class="inv-toggle"><input id="consumNeed" type="checkbox"'+(consumNeedOnly?' checked':'')+' onchange="applyConsumFilter()"> Needs reorder only</label>'
+    + '<span id="consumCount" class="inv-count"></span>'
+    + '</div>';
   return '<div class="inv-head">'
-    + '<div><div class="inv-title">&#128230; Consumables Inventory</div><div class="inv-sub">'+banner+'</div></div>'
-    + '<div class="inv-stats">'
-    + '<div class="inv-stat"><div class="inv-stat-num">'+total+'</div><div class="inv-stat-lbl">Line Items</div></div>'
-    + '<div class="inv-stat"><div class="inv-stat-num" style="color:var(--misc)">'+waiting+'</div><div class="inv-stat-lbl">Waiting On Delivery</div></div>'
-    + '</div></div>'
-    + '<div class="inv-table-wrap"><table class="inv-table"><thead><tr>'+head+'</tr></thead><tbody>'+bodyRows+'</tbody></table></div>';
+    + '<div><div class="inv-title">&#128230; Consumables Inventory</div><div class="inv-sub">'+banner+'</div></div></div>'
+    + kpis
+    + '<div class="inv-insight">'+insight+'</div>'
+    + tools
+    + '<div class="inv-table-wrap"><table class="inv-table"><thead><tr>'+head+'</tr></thead><tbody>'+bodyRows+'</tbody></table></div>'
+    + '<div class="inv-cap">Source: Consumables Google Sheet · items needing reorder are sorted to the top</div>';
 }
 
 // ============================================================
@@ -1009,6 +1110,30 @@ function renderIron(){
   if(ironData && ironData.live) banner='<span class="inv-banner ok">&#128994; Live from EWS Asset Tracking</span>';
   else if(ironData && ironData.error) banner='<span class="inv-banner warn">&#9888;&#65039; '+esc("Couldn't load the asset sheet ("+ironData.error+").")+'</span>';
   else banner='<span class="inv-banner warn">Loading…</span>';
+  var kpis='', insight='', cap='';
+  if(ironData && !ironData.error){
+    var tm={}; (ironData.totals||[]).forEach(function(t){ tm[String(t.state).toLowerCase()]=t.value; });
+    var total=(ironData.totals||[]).reduce(function(a,b){return a+b.value;},0);
+    var deployed=tm['deployed']||0;
+    var inProc=(tm['paint']||0)+(tm['rebuild']||0)+(tm['machine']||0)+(tm['unstarted']||0)+(tm['not started']||0);
+    var complete=tm['completed']||tm['complete']||0;
+    var availSum=(ironData.available||[]).reduce(function(a,b){return a+b.avail;},0);
+    var depPct=total?Math.round(deployed/total*100):0, procPct=total?Math.round(inProc/total*100):0;
+    kpis=kpiStrip([
+      { val: total, lbl:'Total Assets', sub:'tracked in EWS', tone:'primary' },
+      { val: deployed, lbl:'Deployed', sub:depPct+'% in the field', tone:'good' },
+      { val: inProc, lbl:'In Process', sub:procPct+'% in the shop', tone:'caution' },
+      { val: availSum, lbl:'Available', sub:'ready on the shelf', tone:'good' }
+    ]);
+    var dep=ironData.deployed||{fleets:[],types:[],counts:{}};
+    var sumDep=0; (dep.types||[]).forEach(function(t){ (dep.fleets||[]).forEach(function(f){ sumDep+=ironNum((dep.counts[f.label]||{})[t]); }); });
+    var av=(ironData.available||[]).slice().sort(function(a,b){return b.avail-a.avail;}); var topAv=av[0];
+    if(ironSub==='processing') insight='<b>'+inProc+'</b> assets in the shop · <b>'+complete+'</b> complete &amp; ready to deploy';
+    else if(ironSub==='available') insight='Most available: <b>'+(topAv?esc(topAv.type)+'</b> ('+topAv.avail+')':'&mdash;</b>')+' · <b>'+availSum+'</b> units on the shelf';
+    else if(ironSub==='overview') insight='Deployed is <b>'+depPct+'%</b> of the <b>'+total+'</b>-asset fleet';
+    else insight='<b>'+sumDep+'</b> units deployed across <b>'+(dep.fleets||[]).length+'</b> fleets — darker cells mean more units';
+    cap='<div class="inv-cap">Source: EWS Asset Tracking v3.0 (Google Sheets) · live, refreshes with the dashboard</div>';
+  }
   var body;
   if(!ironData || ironData.error) body='<div class="no-data"><div class="no-data-icon">&#128295;</div><p>'+((ironData&&ironData.error)?'Could not load the asset sheet.':'Loading iron inventory…')+'</p></div>';
   else if(ironSub==='processing') body=renderIronProcessing();
@@ -1016,23 +1141,37 @@ function renderIron(){
   else if(ironSub==='overview') body=renderIronOverview();
   else body=renderIronDeployed();
   host.innerHTML='<div class="inv-head"><div><div class="inv-title">&#128295; Iron Inventory Tracker</div><div class="inv-sub">'+banner+'</div></div></div>'
-    +'<div class="iron-subnav">'+nav+'</div><div class="iron-body">'+body+'</div>';
+    +kpis
+    +'<div class="iron-subnav">'+nav+'</div>'
+    +(insight?'<div class="inv-insight">'+insight+'</div>':'')
+    +'<div class="iron-body">'+body+'</div>'
+    +cap;
 }
 
 function renderIronDeployed(){
   var d=ironData.deployed;
   if(!d||!d.fleets.length) return '<div class="no-data"><p>No deployed equipment found.</p></div>';
+  // Heatmap scale: find the largest single cell so shading is relative.
+  var maxCell=1;
+  d.types.forEach(function(t){ d.fleets.forEach(function(f){ var n=ironNum((d.counts[f.label]||{})[t]); if(n>maxCell) maxCell=n; }); });
   var head='<th class="iron-sticky">Equipment</th>'+d.fleets.map(function(f){
     return '<th class="iron-fleet"><span class="iron-fleet-name">'+esc(f.label)+'</span><span class="iron-fleet-pad">'+esc(f.pad||'&mdash;')+'</span></th>';
-  }).join('');
+  }).join('')+'<th class="ic">Total</th>';
   var body=d.types.map(function(t){
+    var rowTotal=0;
     var cells=d.fleets.map(function(f){
-      var v=(d.counts[f.label]||{})[t]; var n=ironNum(v);
-      return '<td class="iron-c'+(n>0?' iron-pos':'')+'">'+((v==null||v==='')?'0':esc(String(v)))+'</td>';
+      var v=(d.counts[f.label]||{})[t]; var n=ironNum(v); rowTotal+=n;
+      if(n<=0) return '<td class="iron-c"><span class="iron-zero">0</span></td>';
+      var a=0.12+0.80*(n/maxCell);
+      var tc=a>0.60?'color:#fff;':'';
+      return '<td class="iron-c" style="background:rgba(var(--heat-rgb),'+a.toFixed(3)+');'+tc+'"><span class="iron-heat-num">'+n+'</span></td>';
     }).join('');
-    return '<tr><td class="iron-sticky iron-type">'+esc(t)+'</td>'+cells+'</tr>';
+    return '<tr><td class="iron-sticky iron-type">'+esc(t)+'</td>'+cells+'<td class="ic iron-total-col">'+rowTotal+'</td></tr>';
   }).join('');
-  return '<div class="inv-table-wrap"><table class="inv-table iron-matrix"><thead><tr>'+head+'</tr></thead><tbody>'+body+'</tbody></table></div>';
+  var grand=0;
+  var footCells=d.fleets.map(function(f){ var s=0; d.types.forEach(function(t){ s+=ironNum((d.counts[f.label]||{})[t]); }); grand+=s; return '<td class="ic iron-total-col">'+s+'</td>'; }).join('');
+  var foot='<tr><td class="iron-sticky iron-total-col">All Equipment</td>'+footCells+'<td class="ic iron-total-col">'+grand+'</td></tr>';
+  return '<div class="inv-table-wrap"><table class="inv-table iron-matrix"><thead><tr>'+head+'</tr></thead><tbody>'+body+foot+'</tbody></table></div>';
 }
 
 function ironStack(segs,total,maxTotal){
@@ -1045,7 +1184,7 @@ function ironStack(segs,total,maxTotal){
 }
 
 function renderIronProcessing(){
-  var rows=ironData.rebuild||[];
+  var rows=(ironData.rebuild||[]).slice().sort(function(a,b){return b.count-a.count;});
   if(!rows.length) return '<div class="no-data"><p>No processing data.</p></div>';
   var maxCount=Math.max(1,Math.max.apply(null,rows.map(function(r){return r.count;})));
   var head='<th>Equipment</th><th class="ic">Count</th><th class="ic">Complete</th><th class="ic">Paint</th><th class="ic">Rebuild</th><th class="ic">Machine</th><th class="ic">Not Started</th><th>Distribution</th>';
@@ -1057,7 +1196,7 @@ function renderIronProcessing(){
 }
 
 function renderIronAvailable(){
-  var rows=ironData.available||[];
+  var rows=(ironData.available||[]).slice().sort(function(a,b){return b.avail-a.avail;});
   if(!rows.length) return '<div class="no-data"><p>No available data.</p></div>';
   var maxV=Math.max(1,Math.max.apply(null,rows.map(function(r){return r.avail;})));
   var body=rows.map(function(r){
@@ -1072,20 +1211,22 @@ function stateLegend(states){
 }
 
 function renderIronOverview(){
-  var totals=ironData.totals||[];
+  // Skill note: 6 status categories exceed the 5-slice pie/donut limit, so this uses a
+  // ranked horizontal bar chart (sorted by value, labelled directly) per chart-builder.
+  var totals=(ironData.totals||[]).slice().sort(function(a,b){return b.value-a.value;});
   var sum=totals.reduce(function(a,b){return a+b.value;},0);
-  var r=70, circ=2*Math.PI*r, off=0;
-  var arcs=totals.map(function(t){
-    var len=sum>0?t.value/sum*circ:0, col=IRON_COLORS[t.state]||'#999';
-    var seg='<circle r="'+r+'" cx="90" cy="90" fill="transparent" stroke="'+col+'" stroke-width="26" stroke-dasharray="'+len+' '+(circ-len)+'" stroke-dashoffset="'+(-off)+'"></circle>';
-    off+=len; return seg;
+  var max=totals.length?totals[0].value:1; if(max<=0) max=1;
+  var bars=totals.map(function(t){
+    var pct=sum>0?(t.value/sum*100):0;
+    var w=Math.max(2, t.value/max*100);
+    var col=IRON_COLORS[t.state]||'#999';
+    return '<div class="rank-row">'
+      +'<div class="rank-lbl"><span class="iron-dot" style="background:'+col+'"></span>'+esc(t.state)+'</div>'
+      +'<div class="rank-track"><div class="rank-fill" style="width:'+w+'%;background:'+col+'"></div></div>'
+      +'<div class="rank-val">'+t.value+' <span>'+pct.toFixed(1)+'%</span></div>'
+    +'</div>';
   }).join('');
-  var donut='<div class="iron-donut"><svg width="180" height="180" viewBox="0 0 180 180" style="transform:rotate(-90deg)">'+arcs+'</svg>'
-    +'<div class="iron-donut-center"><div class="iron-donut-num">'+sum+'</div><div class="iron-donut-lbl">Total Assets</div></div></div>';
-  var legend='<div class="iron-tot-legend">'+totals.map(function(t){
-    var pct=sum>0?(t.value/sum*100).toFixed(1):'0';
-    return '<div class="iron-tot-row"><span class="iron-dot" style="background:'+(IRON_COLORS[t.state]||'#999')+'"></span><span class="iron-tot-state">'+esc(t.state)+'</span><span class="iron-tot-val">'+t.value+'</span><span class="iron-tot-pct">'+pct+'%</span></div>';
-  }).join('')+'</div>';
+  var card='<div class="rank-card"><div class="iron-tbl-title">Asset status — ranked by count (of '+sum+' total)</div>'+bars+'</div>';
   var rb=ironData.rebuild||[];
   function tbl(title,cols){
     var head=cols.map(function(c,i){ return '<th'+(i>0?' class="ic"':'')+'>'+c.h+'</th>'; }).join('');
@@ -1094,7 +1235,7 @@ function renderIronOverview(){
   }
   var tA=tbl('Count / Complete / Paint',[{h:'Equipment',k:'type'},{h:'Count',k:'count'},{h:'Complete',k:'complete'},{h:'Paint',k:'paint'}]);
   var tB=tbl('Rebuild / Machine / Unstarted',[{h:'Equipment',k:'type'},{h:'Rebuild',k:'rebuild'},{h:'Machine',k:'machine'},{h:'Not Started',k:'notStarted'}]);
-  return '<div class="iron-overview">'+donut+legend+'</div><div class="iron-tbl-grid">'+tA+tB+'</div>';
+  return card+'<div class="iron-tbl-grid">'+tA+tB+'</div>';
 }
 
 function renderAll() {
