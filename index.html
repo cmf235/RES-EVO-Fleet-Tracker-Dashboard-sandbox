@@ -957,6 +957,7 @@ function loadIron(){
   }).catch(function(err){ ironData={ error:err.message }; renderIron(); });
 }
 
+function ironJunk_(t){ return !t || /^type$/i.test(t) || /updated|^grand\b|^total|^subtotal|^legend|^notes?\b|^key\b/i.test(t); }
 function parseDeployed_(rows){
   var fleets=[], types=[], counts={}, seen={}, cur=null;
   rows.forEach(function(r){
@@ -964,7 +965,7 @@ function parseDeployed_(rows){
     if(/fleet\s*#?\s*\d/i.test(c0)){ cur={label:c0, pad:(r[1]||'').trim()}; fleets.push(cur); counts[c0]={}; return; }
     if(!cur) return;
     var type=(r[5]||'').trim();
-    if(!type || type.length>45) return;
+    if(ironJunk_(type) || type.length>45) return;
     counts[cur.label][type]=(r[6]||'').trim();
     if(!seen[type]){ seen[type]=1; types.push(type); }
   });
@@ -974,7 +975,7 @@ function parseRebuild_(rows){
   var out=[];
   rows.forEach(function(r){
     var type=(r[4]||'').trim();
-    if(!type || /^type$/i.test(type) || type.length>45) return;
+    if(ironJunk_(type) || type.length>45) return;
     out.push({ type:type, count:ironNum(r[5]), complete:ironNum(r[6]), paint:ironNum(r[7]), rebuild:ironNum(r[8]), machine:ironNum(r[9]), notStarted:ironNum(r[10]) });
   });
   return out;
@@ -983,7 +984,7 @@ function parseAvailable_(rows){
   var out=[];
   rows.forEach(function(r){
     var type=(r[4]||'').trim();
-    if(!type || /^type$/i.test(type) || type.length>45) return;
+    if(ironJunk_(type) || type.length>45) return;
     out.push({ type:type, avail:ironNum(r[5]) });
   });
   return out;
