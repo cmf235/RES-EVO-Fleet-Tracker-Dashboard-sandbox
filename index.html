@@ -635,13 +635,12 @@
 <nav class="nav" id="mainNav">
   <div class="nav-tab active" data-panel="summary"  onclick="showPanel('summary')">📊 Weekly Summary</div>
   <div class="nav-tab"        data-panel="calendar" onclick="showPanel('calendar')">📅 Calendar</div>
-  <div class="nav-tab"        data-panel="gantt"    onclick="showPanel('gantt')">📈 Gantt Timeline</div>
   <div class="nav-tab"        data-panel="fleet-6"  onclick="showPanel('fleet-6')"><span class="nav-dot" style="background:#2E7D32"></span>Fleet #6</div>
   <div class="nav-tab"        data-panel="fleet-9"  onclick="showPanel('fleet-9')"><span class="nav-dot" style="background:#6A1B9A"></span>Fleet #9</div>
   <div class="nav-tab"        data-panel="fleet-10" onclick="showPanel('fleet-10')"><span class="nav-dot" style="background:#E65100"></span>Fleet #10</div>
   <div class="nav-tab"        data-panel="fleet-13" onclick="showPanel('fleet-13')"><span class="nav-dot" style="background:#00695C"></span>Fleet #13</div>
   <div class="nav-tab"        data-panel="fleet-15" onclick="showPanel('fleet-15')"><span class="nav-dot" style="background:#AD1457"></span>Fleet #15</div>
-  <div class="nav-tab"        data-panel="consumables" onclick="showPanel('consumables')"><span class="nav-dot" style="background:#455A64"></span>Consumables Inventory</div>
+  <div class="nav-tab"        data-panel="consumables" onclick="showPanel('consumables')">📦 Consumables Inventory</div>
 </nav>
 
 <!-- ===== MAIN ===== -->
@@ -699,15 +698,6 @@
         <button class="day-modal-close" onclick="closeDayModal()" aria-label="Close">×</button>
       </div>
       <div id="dayModalBody"></div>
-    </div>
-  </div>
-
-  <!-- GANTT -->
-  <div class="panel" id="panel-gantt">
-    <div class="gantt-wrap">
-      <div class="gantt-inner" id="ganttInner">
-        <div class="no-data"><div class="no-data-icon">📈</div><p>Loading Gantt data…</p></div>
-      </div>
     </div>
   </div>
 
@@ -912,7 +902,6 @@ function renderAll() {
   }
   renderSummary();
   renderCalendar();
-  renderGantt();
   renderFleetPanels();
 }
 
@@ -1715,6 +1704,7 @@ function loadDemoData() {
 //  PANEL / TAB SWITCHING
 // ============================================================
 function showPanel(id) {
+  if (!document.getElementById('panel-'+id)) id = 'summary';
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   const panel = document.getElementById('panel-'+id);
