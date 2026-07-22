@@ -705,11 +705,11 @@ let calYear, calMonth;
   calMonth = now.getMonth();
 
   // Restore theme
-  const theme = localStorage.getItem('evo-theme') || 'light';
+  const theme = localStorage.getItem('evo-theme-sandbox') || 'light';
   applyTheme(theme);
 
   // Restore last panel
-  const panel = localStorage.getItem('evo-panel') || 'summary';
+  const panel = localStorage.getItem('evo-panel-sandbox') || 'summary';
   showPanel(panel);
 
   refreshData();
@@ -1432,7 +1432,7 @@ function showPanel(id) {
   if (panel) panel.classList.add('active');
   const tab = document.querySelector('[data-panel="'+id+'"]');
   if (tab) { tab.classList.add('active'); tab.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'}); }
-  localStorage.setItem('evo-panel', id);
+  localStorage.setItem('evo-panel-sandbox', id);
 }
 
 // ============================================================
@@ -1445,7 +1445,7 @@ function toggleDark() {
 function applyTheme(t) {
   document.documentElement.setAttribute('data-theme', t);
   document.getElementById('themeBtn').textContent = t==='dark' ? '☀️ Light' : '🌙 Dark';
-  localStorage.setItem('evo-theme', t);
+  localStorage.setItem('evo-theme-sandbox', t);
 }
 </script>
 </body>
