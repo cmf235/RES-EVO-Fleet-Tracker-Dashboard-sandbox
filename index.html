@@ -1298,8 +1298,10 @@ function fmt(s) {
 }
 function fmtRange(s, e) {
   if (!s) return null;
-  if (!e || s === e) return fmt(s);
-  return fmt(s) + ' – ' + fmt(e);
+  // Fall back to the raw value if a side won't parse, so an unparseable/typo'd
+  // date (e.g. "7/116/2026") shows the real value instead of the literal "null".
+  if (!e || s === e) return fmt(s) || s;
+  return (fmt(s) || s) + ' – ' + (fmt(e) || e);
 }
 function todayISO() {
   const n = new Date();
