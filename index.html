@@ -398,7 +398,7 @@
 
     .sub-header { padding: 8px 18px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-secondary); background: var(--surface2); border-bottom: 1px solid var(--border); }
     /* ===== RIG UP DRAWING + CERTIFICATION PACKET (sandbox add-on) ===== */
-    .fleet-files-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
+    .fleet-files-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 20px; align-items: start; }
     .ff-col { display: flex; flex-direction: column; gap: 20px; }
     @media (max-width: 780px) { .fleet-files-grid { grid-template-columns: 1fr; } }
     .sc-header.drawing { background: var(--primary-light); border-bottom-color: var(--primary); color: var(--primary); }
@@ -510,6 +510,23 @@
     .rank-val { font-size: 13px; font-weight: 800; text-align: right; }
     .rank-val span { color: var(--text-secondary); font-weight: 600; font-size: 12px; }
     @media (max-width: 560px) { .rank-row { grid-template-columns: 100px 1fr 78px; gap: 8px; } }
+
+    /* ===== SCHEDULE-TAB SKILL PASS (summary/calendar/fleet) ===== */
+    .fleet-insight { font-size: 13px; color: var(--text-secondary); margin-top: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .fleet-insight b { color: var(--text); font-weight: 800; }
+    .svc-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 18px 6px; }
+    .svc-chip { font-size: 12px; font-weight: 600; padding: 4px 11px; border-radius: 14px; background: var(--primary-light); color: var(--primary); border: 1px solid transparent; white-space: nowrap; }
+    .svc-chip .svc-qty { font-weight: 800; margin-left: 5px; }
+    .svc-chip.off { background: transparent; color: var(--text-secondary); border-color: var(--border); font-weight: 500; opacity: .85; }
+    .cal-summary { display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: center; margin-bottom: 14px; padding: 11px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+    .cs-item { display: inline-flex; align-items: baseline; gap: 6px; font-size: 13px; }
+    .cs-num { font-weight: 800; font-size: 18px; line-height: 1; }
+    .cs-num.good { color: var(--good); } .cs-num.alert { color: var(--alert); } .cs-num.primary { color: var(--primary); }
+    .cs-lbl { color: var(--text-secondary); }
+    .cal-filter { margin-left: auto; display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--text-secondary); font-weight: 600; }
+    .cal-filter select { padding: 5px 9px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font-size: 12px; font-weight: 600; cursor: pointer; }
+    .cal-cell.cal-conflict:not(.other-month) { background: var(--rigdown-bg); }
+    .cal-cell.cal-conflict::after { content: '\26A0'; position: absolute; top: 3px; right: 4px; font-size: 9px; color: #fff; background: var(--alert); width: 15px; height: 15px; border-radius: 50%; display: flex; align-items: center; justify-content: center; line-height: 1; }
 
     @media (max-width: 640px) { .inv-head { flex-direction: column; } }
 
@@ -723,11 +740,12 @@
   <div class="panel active" id="panel-summary">
     <div class="conflict-banner" id="conflictBanner"></div>
     <div class="stats-row" id="statsRow">
-      <div class="stat-card"><div class="stat-num" style="color:#1B5E20">—</div><div class="stat-lbl">Active Now</div></div>
-      <div class="stat-card"><div class="stat-num" style="color:#E65100">—</div><div class="stat-lbl">Within 7 Days</div></div>
-      <div class="stat-card"><div class="stat-num" style="color:#1565C0">6</div><div class="stat-lbl">Fleets</div></div>
-      <div class="stat-card"><div class="stat-num" style="color:#6b7280">—</div><div class="stat-lbl">Total Events</div></div>
+      <div class="kpi-card good"><div class="kpi-val">—</div><div class="kpi-lbl">Active Now</div></div>
+      <div class="kpi-card caution"><div class="kpi-val">—</div><div class="kpi-lbl">Within 7 Days</div></div>
+      <div class="kpi-card alert"><div class="kpi-val">—</div><div class="kpi-lbl">Conflicts</div></div>
+      <div class="kpi-card primary"><div class="kpi-val">—</div><div class="kpi-lbl">Fleets</div></div>
     </div>
+    <div class="inv-insight" id="summaryInsight"></div>
     <div class="legend">
       <div class="legend-item"><div class="legend-dot" style="background:#C62828"></div>Rig Down</div>
       <div class="legend-item"><div class="legend-dot" style="background:#E57373"></div>RD Logistics</div>
@@ -749,6 +767,7 @@
       <button class="cal-nav-btn" onclick="calNav(1)">›</button>
       <button class="cal-today-btn" onclick="calNav(0)">Today</button>
     </div>
+    <div class="cal-summary" id="calSummary"></div>
     <div class="legend">
       <div class="legend-item"><div class="legend-dot" style="background:#C62828"></div>Rig Down</div>
       <div class="legend-item"><div class="legend-dot" style="background:#E57373"></div>RD Logistics</div>
@@ -1349,14 +1368,31 @@ function renderSummary() {
     });
   });
 
-  document.getElementById('statsRow').innerHTML = `
-    <div class="stat-card"><div class="stat-num" style="color:#1B5E20">${active}</div><div class="stat-lbl">Active Now</div></div>
-    <div class="stat-card"><div class="stat-num" style="color:#E65100">${soon}</div><div class="stat-lbl">Within 7 Days</div></div>
-    <div class="stat-card"><div class="stat-num" style="color:#1565C0">${appData.fleets.length}</div><div class="stat-lbl">Fleets</div></div>
-    <div class="stat-card"><div class="stat-num" style="color:#6b7280">${total}</div><div class="stat-lbl">Total Events</div></div>`;
-
-  // Conflicts
   const conflicts = detectConflicts(allEv);
+
+  // Headline KPI cards (unified .kpi-card style + semantic tones)
+  const cards = [
+    { v:active,                  l:'Active Now',    s:'in progress',                              tone:'good' },
+    { v:soon,                    l:'Within 7 Days', s:'coming up',                                tone:'caution' },
+    { v:conflicts.length,        l:'Conflicts',     s: conflicts.length ? 'need resolving' : 'all clear', tone: conflicts.length ? 'alert' : 'good' },
+    { v:appData.fleets.length,   l:'Fleets',        s:'tracked',                                  tone:'primary' }
+  ];
+  document.getElementById('statsRow').innerHTML = cards.map(function(c){
+    return '<div class="kpi-card '+c.tone+'"><div class="kpi-val">'+c.v+'</div><div class="kpi-lbl">'+esc(c.l)+'</div><div class="kpi-sub">'+c.s+'</div></div>';
+  }).join('');
+
+  // Insight line: the single most useful sentence — what's next + conflicts
+  const upcoming = allEv.filter(function(e){ return e.start >= today; }).sort(function(a,b){ return a.start<b.start?-1:(a.start>b.start?1:0); });
+  let ins;
+  if (upcoming.length) {
+    const n = upcoming[0], d = diffDays(n.start);
+    ins = '⚡ Next up: <b>Fleet #'+n.fleetNum+'</b> '+esc(n.label)+' '+(d===0?'today':'in '+d+'d')+' <span style="color:var(--text-secondary)">('+(fmt(n.start)||n.start)+')</span>';
+  } else {
+    ins = 'No upcoming events scheduled.';
+  }
+  if (conflicts.length) ins += ' · <b style="color:var(--alert)">'+conflicts.length+'</b> conflict'+(conflicts.length>1?'s':'')+' to resolve';
+  const insEl = document.getElementById('summaryInsight'); if (insEl) insEl.innerHTML = ins;
+
   const cb = document.getElementById('conflictBanner');
   if (conflicts.length) {
     cb.innerHTML = '<div class="conflict-title">⚠️ Schedule Conflicts Detected (' + conflicts.length + ')</div>' +
@@ -1452,15 +1488,45 @@ function calNav(dir) {
   renderCalendar();
 }
 
+var calFleetFilter = '';
+function setCalFleet(v){ calFleetFilter = v; renderCalendar(); }
+
+// Dates where two different fleets collide (same-day rig events, or overlapping roustabout crews).
+function computeConflictDates(){
+  var set = {};
+  if (!appData) return set;
+  var rig = [], roust = [];
+  appData.fleets.forEach(function(f){
+    collectEvents(f).forEach(function(e){
+      if (e.type==='rigup' || e.type==='rigdown') rig.push({ fleet:f.num, start:e.start });
+      if (e.type==='roustabout') roust.push({ fleet:f.num, start:e.start, end:e.end||e.start });
+    });
+  });
+  for (var i=0;i<rig.length;i++) for (var j=i+1;j<rig.length;j++)
+    if (String(rig[i].fleet)!==String(rig[j].fleet) && rig[i].start===rig[j].start) set[rig[i].start]=1;
+  for (var a=0;a<roust.length;a++) for (var b=a+1;b<roust.length;b++){
+    if (String(roust[a].fleet)===String(roust[b].fleet)) continue;
+    var oS = roust[a].start>roust[b].start?roust[a].start:roust[b].start;
+    var oE = roust[a].end<roust[b].end?roust[a].end:roust[b].end;
+    if (oS<=oE){ var c=parseDate(oS), e=parseDate(oE); while(c&&e&&c<=e){ set[c.getFullYear()+'-'+pad2(c.getMonth()+1)+'-'+pad2(c.getDate())]=1; c.setDate(c.getDate()+1); } }
+  }
+  return set;
+}
+
 function renderCalendar() {
   document.getElementById('calMonthLbl').textContent = MONTH_NAMES[calMonth] + ' ' + calYear;
 
-  // Build date→events map
+  // Build date→events map (respecting the fleet filter) + tally this month's rig moves
   const evMap = {};
+  let mRigUp=0, mRigDown=0;
+  const ymPrefix = calYear+'-'+pad2(calMonth+1)+'-';
   if (appData) {
     appData.fleets.forEach(f => {
+      if (calFleetFilter && String(f.num)!==String(calFleetFilter)) return;
       collectEvents(f).forEach(ev => {
         if (!ev.start) return;
+        if (ev.type==='rigup'   && ev.start.indexOf(ymPrefix)===0) mRigUp++;
+        if (ev.type==='rigdown' && ev.start.indexOf(ymPrefix)===0) mRigDown++;
         const s=parseDate(ev.start), e=parseDate(ev.end||ev.start);
         if (!s) return;
         let cur=new Date(s);
@@ -1473,6 +1539,8 @@ function renderCalendar() {
       });
     });
   }
+  const conflictDates = computeConflictDates();
+  let mConflictDays = 0;
 
   const today = todayISO();
   const firstDow = new Date(calYear, calMonth, 1).getDay();
@@ -1498,7 +1566,9 @@ function renderCalendar() {
       const titleTxt = `Fleet #${ev.fleetNum} · ${ev.label}${meta ? ' | '+meta : ''}`;
       return `<div class="cal-ev" style="background:${c}" title="${titleTxt}"><span>#${ev.fleetNum} ${ev.label}${meta ? '<span style="opacity:0.8;font-weight:400"> · '+meta+'</span>' : ''}</span></div>`;
     }).join('');
-    html += `<div class="cal-cell${isToday?' cal-today':''}" data-date="${ds}" onclick="openDayDetail('${ds}')"><div class="cal-day-num">${d}</div>${evHtml}</div>`;
+    const isConflict = !!conflictDates[ds];
+    if (isConflict) mConflictDays++;
+    html += `<div class="cal-cell${isToday?' cal-today':''}${isConflict?' cal-conflict':''}" data-date="${ds}" onclick="openDayDetail('${ds}')"><div class="cal-day-num">${d}</div>${evHtml}</div>`;
   }
   // Next month padding
   const used = firstDow + daysInMonth;
@@ -1506,6 +1576,19 @@ function renderCalendar() {
   for (let i=1; i<=rem; i++) html += `<div class="cal-cell other-month"><div class="cal-day-num">${i}</div></div>`;
 
   document.getElementById('calGrid').innerHTML = html;
+
+  // Month-at-a-glance strip + fleet filter
+  var cs = document.getElementById('calSummary');
+  if (cs) {
+    var fopts = '<option value="">All fleets</option>' + (appData ? appData.fleets.map(function(f){
+      return '<option value="'+f.num+'"'+(String(calFleetFilter)===String(f.num)?' selected':'')+'>Fleet #'+f.num+' · '+esc(f.shortName||'')+'</option>';
+    }).join('') : '');
+    cs.innerHTML =
+        '<span class="cs-item"><span class="cs-num primary">'+mRigUp+'</span><span class="cs-lbl">rig-ups</span></span>'
+      + '<span class="cs-item"><span class="cs-num">'+mRigDown+'</span><span class="cs-lbl">rig-downs</span></span>'
+      + '<span class="cs-item"><span class="cs-num '+(mConflictDays?'alert':'good')+'">'+mConflictDays+'</span><span class="cs-lbl">conflict day'+(mConflictDays===1?'':'s')+'</span></span>'
+      + '<span class="cal-filter">Filter: <select onchange="setCalFleet(this.value)">'+fopts+'</select></span>';
+  }
 }
 
 // Day detail popup (clicking any day opens it on desktop and mobile)
@@ -1800,17 +1883,21 @@ function sideCard(side, label, cssClass) {
     + shiftRow
     + dtRow('Logistics Date', side.logisticsDate, side.logisticsTime)
     + sh('Services')
-    + svcRow('Monoline Iron',           !!(side.monolineIron))
-    + svcRow('Pumpdown Iron',           !!(side.pumpdownIron))
-    + svcRow('Low Pressure Iron',       !!(side.lowPressureIron))
-    + svcRow('Flowback Iron',           !!(side.flowbackIron))
-    + svcRow('High Pressure Hoses',     !!(side.highPressureHoses))
-    + svcRow('Rig Mats / Barrier Wall', !!(side.rigMats))
-    + svcRow('Pull Cables',             !!(side.pullCables))
+    + svcChips([
+        { label:'Monoline Iron',           on:!!side.monolineIron },
+        { label:'Pumpdown Iron',           on:!!side.pumpdownIron },
+        { label:'Low Pressure Iron',       on:!!side.lowPressureIron },
+        { label:'Flowback Iron',           on:!!side.flowbackIron },
+        { label:'High Pressure Hoses',     on:!!side.highPressureHoses },
+        { label:'Rig Mats / Barrier Wall', on:!!side.rigMats },
+        { label:'Pull Cables',             on:!!side.pullCables }
+      ])
     + sh('Logistics')
-    + svcRow('RES Load Transports',         !!(side.loadTransports), side.loadQty   ? side.loadQty   + ' TRUCKS' : '')
-    + svcRow('RES Unload Transports',       !!(side.unloadTransports), side.unloadQty ? side.unloadQty + ' TRUCKS' : '')
-    + svcRow('RES Provided Semi / Hotshot', !!(side.semiHotshot),      side.semiQty   ? side.semiQty   + ' TRUCKS' : '')
+    + svcChips([
+        { label:'RES Load Transports',   on:!!side.loadTransports,   qty: side.loadQty   ? side.loadQty   + ' trucks' : '' },
+        { label:'RES Unload Transports', on:!!side.unloadTransports, qty: side.unloadQty ? side.unloadQty + ' trucks' : '' },
+        { label:'RES Semi / Hotshot',    on:!!side.semiHotshot,      qty: side.semiQty   ? side.semiQty   + ' trucks' : '' }
+      ])
     + sh('Add On Services')
     + svcRow('Misc', !!(side.misc && side.misc.start))
     + (side.misc && side.misc.desc ? '<div class="detail-row"><div class="detail-lbl">Description</div><div class="detail-val" style="font-style:italic;color:var(--text-secondary);font-size:12px">' + esc(side.misc.desc) + '</div></div>' : '')
@@ -1821,13 +1908,39 @@ function sideCard(side, label, cssClass) {
     + '</div>';
 }
 
+// Next upcoming milestone for a single fleet — the one sentence that matters most.
+function fleetNextLine(f) {
+  var today = todayISO();
+  var evs = collectEvents(f).filter(function(e){ return (e.end||e.start) >= today; })
+                            .sort(function(a,b){ return a.start<b.start?-1:(a.start>b.start?1:0); });
+  var n = evs[0];
+  if (!n) return '<div class="fleet-insight">No upcoming milestones scheduled.</div>';
+  var d = diffDays(n.start);
+  var when = d===0 ? 'today' : (d>0 ? 'in '+d+'d' : Math.abs(d)+'d ago');
+  var padStr = n.pad ? (/^pad\b/i.test(String(n.pad).trim()) ? n.pad : 'Pad '+n.pad) : '';
+  var locpad = [n.loc, padStr].filter(Boolean).join(' · ');
+  return '<div class="fleet-insight">&#9889; Next: <b>'+esc(n.label)+'</b> '+(fmt(n.start)||n.start)+' ('+when+')'+(locpad?' · '+esc(locpad):'')+'</div>';
+}
+
+// Compact chip row: selected services pop (colored), the rest recede (muted) — grey-by-default.
+function svcChips(items) {
+  var on  = items.filter(function(i){ return i.on; });
+  var off = items.filter(function(i){ return !i.on; });
+  var html = '<div class="svc-chips">';
+  on.forEach(function(i){ html += '<span class="svc-chip">'+esc(i.label)+(i.qty?'<span class="svc-qty">'+esc(i.qty)+'</span>':'')+'</span>'; });
+  off.forEach(function(i){ html += '<span class="svc-chip off">'+esc(i.label)+'</span>'; });
+  html += '</div>';
+  return html;
+}
+
 function fleetPanel(f) {
   var color = FLEET_COLORS[f.num] || '#1565C0';
   var rd = f.rigDown, ru = f.rigUp;
   return '<div class="fleet-page-header">'
     + '<div class="fleet-badge-lg" style="background:' + color + '">' + f.num + '</div>'
-    + '<div><div class="fleet-page-title">' + esc(f.name) + '</div>'
+    + '<div style="flex:1"><div class="fleet-page-title">' + esc(f.name) + '</div>'
     + '<div class="fleet-page-sub">Detailed schedule · Click any card to return to summary</div>'
+    + fleetNextLine(f)
     + '</div></div>'
     + '<div class="fleet-detail-grid">'
     + sideCard(ru, '🟢&nbsp; Rig Up',   'rigup')
@@ -1855,14 +1968,11 @@ function fileMeta(f, kind) {
 
 function filesSection(f) {
   var num = f.num;
-  var col1 = '<div class="ff-col">'
+  return '<div class="fleet-files-grid">'
     + drawingCardHtml(f, num, 'Rig Up Drawing',   'drawing',     'dwg')
     + drawingCardHtml(f, num, 'Pumpdown Drawing', 'pumpdrawing', 'pumpdwg')
-    + '</div>';
-  var col2 = '<div class="ff-col">'
     + certCardHtml(f, num, 'Certification Packet', 'cert')
-    + '</div>';
-  return '<div class="fleet-files-grid">' + col1 + col2 + '</div>' + backendNoteBlock();
+    + '</div>' + backendNoteBlock();
 }
 
 function drawingCardHtml(f, num, title, drawKind, dwgKind) {
