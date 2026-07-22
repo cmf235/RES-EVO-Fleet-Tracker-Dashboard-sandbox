@@ -395,6 +395,7 @@
     .sub-header { padding: 8px 18px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-secondary); background: var(--surface2); border-bottom: 1px solid var(--border); }
     /* ===== RIG UP DRAWING + CERTIFICATION PACKET (sandbox add-on) ===== */
     .fleet-files-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
+    .ff-col { display: flex; flex-direction: column; gap: 20px; }
     @media (max-width: 780px) { .fleet-files-grid { grid-template-columns: 1fr; } }
     .sc-header.drawing { background: var(--primary-light); border-bottom-color: var(--primary); color: var(--primary); }
     .sc-header.cert    { background: var(--roustabout-bg); border-bottom-color: var(--roustabout); color: var(--roustabout); }
@@ -1387,7 +1388,8 @@ function fleetPanel(f) {
 // before the upload backend exists. Once UPLOAD_URL is set and the Apps Script
 // backend returns f.files.<kind> = {url,name}, those shared links take over.
 var pendingFiles = {};
-var FILE_ACCEPT = { drawing:'image/png,.png', dwg:'.dwg,application/acad,image/vnd.dwg', cert:'.zip,application/zip,application/x-zip-compressed' };
+var _PNG='image/png,.png', _DWG='.dwg,application/acad,image/vnd.dwg', _ZIP='.zip,application/zip,application/x-zip-compressed';
+var FILE_ACCEPT = { drawing:_PNG, pumpdrawing:_PNG, dwg:_DWG, pumpdwg:_DWG, cert:_ZIP, pumpcert:_ZIP };
 
 function fileMeta(f, kind) {
   var rec = (f.files || {})[kind];
@@ -1399,42 +1401,58 @@ function fileMeta(f, kind) {
 
 function filesSection(f) {
   var num = f.num;
-  var draw = fileMeta(f,'drawing'), dwg = fileMeta(f,'dwg'), cert = fileMeta(f,'cert');
+  var col1 = '<div class="ff-col">'
+    + drawingCardHtml(f, num, 'Rig Up Drawing',   'drawing',     'dwg')
+    + drawingCardHtml(f, num, 'Pumpdown Drawing', 'pumpdrawing', 'pumpdwg')
+    + '</div>';
+  var col2 = '<div class="ff-col">'
+    + certCardHtml(f, num, 'Certification Packet',          'cert')
+    + certCardHtml(f, num, 'Pumpdown Certification Packet', 'pumpcert')
+    + '</div>';
+  return '<div class="fleet-files-grid">' + col1 + col2 + '</div>' + backendNoteBlock();
+}
 
+function drawingCardHtml(f, num, title, drawKind, dwgKind) {
+  var draw = fileMeta(f, drawKind), dwg = fileMeta(f, dwgKind);
   var previewHtml = draw
-    ? '<div class="drawing-preview"><img src="' + esc(draw.url) + '" alt="Rig up drawing">'
-      + '<div class="change-hint" onclick="pickAndUpload(&#39;' + num + '&#39;,&#39;drawing&#39;)">Replace drawing</div></div>'
-    : '<div class="file-dropzone" onclick="pickAndUpload(&#39;' + num + '&#39;,&#39;drawing&#39;)"><span class="dz-icon">&#x1F5BC;&#xFE0F;</span>Click to upload rig up drawing<br><span style="font-size:11px">PNG image</span></div>';
-
-  var drawingCard = '<div class="section-card">'
-    + '<div class="sc-header drawing">&#x1F4D0;&nbsp; Rig Up Drawing</div>'
+    ? '<div class="drawing-preview"><img src="' + esc(draw.url) + '" alt="' + esc(title) + '">'
+      + '<div class="change-hint" onclick="pickAndUpload(&#39;' + num + '&#39;,&#39;' + drawKind + '&#39;)">Replace drawing</div></div>'
+    : '<div class="file-dropzone" onclick="pickAndUpload(&#39;' + num + '&#39;,&#39;' + drawKind + '&#39;)"><span class="dz-icon">&#x1F5BC;&#xFE0F;</span>Click to upload ' + esc(title.toLowerCase()) + '<br><span style="font-size:11px">PNG image</span></div>';
+  return '<div class="section-card">'
+    + '<div class="sc-header drawing">&#x1F4D0;&nbsp; ' + esc(title) + '</div>'
     + '<div class="file-body">'
     + previewHtml
     + '<div class="file-row"><span>DWG (CAD): <span class="file-name' + (dwg ? '' : ' empty') + '">' + (dwg ? esc(dwg.name) : 'none uploaded') + '</span></span>'
-    + '<button class="file-link-btn" onclick="pickAndUpload(&#39;' + num + '&#39;,&#39;dwg&#39;)">' + (dwg ? 'Replace' : 'Upload DWG') + '</button></div>'
+    + '<button class="file-link-btn" onclick="pickAndUpload(&#39;' + num + '&#39;,&#39;' + dwgKind + '&#39;)">' + (dwg ? 'Replace' : 'Upload DWG') + '</button></div>'
     + '<div class="file-btn-row">'
-    + '<button class="file-btn' + (draw ? '' : ' disabled') + '" onclick="downloadFile(&#39;' + num + '&#39;,&#39;drawing&#39;)">&#x2B07; Download Drawing</button>'
-    + '<button class="file-btn secondary' + (dwg ? '' : ' disabled') + '" onclick="downloadFile(&#39;' + num + '&#39;,&#39;dwg&#39;)">&#x2B07; Download DWG</button>'
+    + '<button class="file-btn' + (draw ? '' : ' disabled') + '" onclick="downloadFile(&#39;' + num + '&#39;,&#39;' + drawKind + '&#39;)">&#x2B07; Download Drawing</button>'
+    + '<button class="file-btn secondary' + (dwg ? '' : ' disabled') + '" onclick="downloadFile(&#39;' + num + '&#39;,&#39;' + dwgKind + '&#39;)">&#x2B07; Download DWG</button>'
     + '</div>'
-    + '<div class="file-status" id="status-drawing-' + num + '"></div>'
+    + '<div class="file-status" id="status-' + drawKind + '-' + num + '"></div>'
     + '</div></div>';
+}
 
+function certCardHtml(f, num, title, certKind) {
+  var cert = fileMeta(f, certKind);
   var certZone = cert
     ? '<div class="file-row"><span>Packet: <span class="file-name">' + esc(cert.name) + '</span></span>'
-      + '<button class="file-link-btn" onclick="pickAndUpload(&#39;' + num + '&#39;,&#39;cert&#39;)">Replace</button></div>'
-    : '<div class="file-dropzone" onclick="pickAndUpload(&#39;' + num + '&#39;,&#39;cert&#39;)"><span class="dz-icon">&#x1F4E6;</span>Click to upload Certification Packet<br><span style="font-size:11px">.zip archive</span></div>';
-
-  var certCard = '<div class="section-card">'
-    + '<div class="sc-header cert">&#x1F4CB;&nbsp; Certification Packet</div>'
+      + '<button class="file-link-btn" onclick="pickAndUpload(&#39;' + num + '&#39;,&#39;' + certKind + '&#39;)">Replace</button></div>'
+    : '<div class="file-dropzone" onclick="pickAndUpload(&#39;' + num + '&#39;,&#39;' + certKind + '&#39;)"><span class="dz-icon">&#x1F4E6;</span>Click to upload ' + esc(title) + '<br><span style="font-size:11px">.zip archive</span></div>';
+  return '<div class="section-card">'
+    + '<div class="sc-header cert">&#x1F4CB;&nbsp; ' + esc(title) + '</div>'
     + '<div class="file-body">'
     + certZone
     + '<div class="file-btn-row">'
-    + '<button class="file-btn' + (cert ? '' : ' disabled') + '" onclick="downloadFile(&#39;' + num + '&#39;,&#39;cert&#39;)">&#x2B07; Download Certification Packet</button>'
+    + '<button class="file-btn' + (cert ? '' : ' disabled') + '" onclick="downloadFile(&#39;' + num + '&#39;,&#39;' + certKind + '&#39;)">&#x2B07; Download ' + esc(title) + '</button>'
     + '</div>'
-    + '<div class="file-status" id="status-cert-' + num + '"></div>'
+    + '<div class="file-status" id="status-' + certKind + '-' + num + '"></div>'
     + '</div></div>';
+}
 
-  return '<div class="fleet-files-grid">' + drawingCard + certCard + '</div>' + backendNoteBlock();
+function statusKindFor(kind) {
+  if (kind === 'dwg') return 'drawing';
+  if (kind === 'pumpdwg') return 'pumpdrawing';
+  return kind;
 }
 
 function backendNoteBlock() {
@@ -1460,7 +1478,7 @@ function handleUpload(num, kind, file) {
   pendingFiles[num][kind] = { file:file, name:file.name, url:URL.createObjectURL(file) };
   rerenderFleet(num);
 
-  var statusEl = document.getElementById('status-' + (kind === 'dwg' ? 'drawing' : kind) + '-' + num);
+  var statusEl = document.getElementById('status-' + statusKindFor(kind) + '-' + num);
   if (typeof UPLOAD_URL === 'undefined' || !UPLOAD_URL) {
     if (statusEl) statusEl.textContent = '✔ ' + file.name + ' loaded locally (not saved — backend not connected).';
     return;
