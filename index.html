@@ -410,6 +410,12 @@
     .drawing-preview img { width: 100%; max-height: 360px; object-fit: contain; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface2); display: block; }
     .drawing-preview .change-hint { text-align: center; font-size: 11px; color: var(--text-secondary); margin-top: 6px; cursor: pointer; }
     .drawing-preview .change-hint:hover { color: var(--primary); }
+    .file-empty { border: 2px dashed var(--border); border-radius: var(--radius); padding: 26px 16px; text-align: center; color: var(--text-secondary); font-size: 13px; background: var(--surface2); }
+    .file-empty .dz-icon { font-size: 30px; display: block; margin-bottom: 8px; opacity: .55; }
+    .file-linked { display: flex; align-items: center; gap: 10px; padding: 16px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); font-size: 13px; font-weight: 600; color: var(--text); }
+    .file-linked .dz-icon { font-size: 22px; }
+    .drawing-preview.broken img { display: none; }
+    .drawing-preview.broken::after { content: 'Drawing link couldn’t load'; display: block; padding: 24px; text-align: center; color: var(--text-secondary); font-size: 12px; border: 2px dashed var(--border); border-radius: var(--radius); background: var(--surface2); }
     .file-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; font-size: 13px; }
     .file-row .file-name { font-weight: 600; word-break: break-all; }
     .file-row .file-name.empty { font-weight: 400; font-style: italic; color: var(--text-secondary); }
@@ -2024,46 +2030,41 @@ function filesSection(f) {
   var num = f.num;
   return '<div class="fleet-files-grid">'
     + drawingCardHtml(f, num, 'Rig Up Drawing',   'drawing',     'dwg')
-    + drawingCardHtml(f, num, 'Pumpdown Drawing', 'pumpdrawing', 'pumpdwg')
+    + drawingCardHtml(f, num, 'Pumpdown Drawing', 'pumpdrawing', null)
     + certCardHtml(f, num, 'Certification Packet', 'cert')
-    + '</div>' + backendNoteBlock();
+    + '</div>';
 }
 
+// URL-driven file cards: the drawing/DWG/packet URLs come from the fleet sheet
+// (fleet.files.<kind>.url). No in-browser uploads — links open the file directly.
 function drawingCardHtml(f, num, title, drawKind, dwgKind) {
-  var draw = fileMeta(f, drawKind), dwg = fileMeta(f, dwgKind);
+  var draw = fileMeta(f, drawKind);
+  var dwg  = dwgKind ? fileMeta(f, dwgKind) : null;
   var previewHtml = draw
-    ? '<div class="drawing-preview"><img src="' + esc(draw.url) + '" alt="' + esc(title) + '">'
-      + '<div class="change-hint" onclick="pickAndUpload(&#39;' + num + '&#39;,&#39;' + drawKind + '&#39;)">Replace drawing</div></div>'
-    : '<div class="file-dropzone" onclick="pickAndUpload(&#39;' + num + '&#39;,&#39;' + drawKind + '&#39;)"><span class="dz-icon">&#x1F5BC;&#xFE0F;</span>Click to upload ' + esc(title.toLowerCase()) + '<br><span style="font-size:11px">PNG image</span></div>';
+    ? '<div class="drawing-preview"><img src="' + esc(draw.url) + '" alt="' + esc(title) + '" onerror="this.closest(&#39;.drawing-preview&#39;).classList.add(&#39;broken&#39;)"></div>'
+    : '<div class="file-empty"><span class="dz-icon">&#x1F5BC;&#xFE0F;</span>No drawing linked yet<br><span style="font-size:11px">Paste the image URL in the fleet sheet</span></div>';
+  var btns = '<button class="file-btn' + (draw ? '' : ' disabled') + '" onclick="downloadFile(&#39;' + num + '&#39;,&#39;' + drawKind + '&#39;)">&#x2B07; Open Drawing</button>';
+  if (dwgKind) btns += '<button class="file-btn secondary' + (dwg ? '' : ' disabled') + '" onclick="downloadFile(&#39;' + num + '&#39;,&#39;' + dwgKind + '&#39;)">&#x2B07; Open DWG</button>';
   return '<div class="section-card">'
     + '<div class="sc-header drawing">&#x1F4D0;&nbsp; ' + esc(title) + '</div>'
     + '<div class="file-body">'
     + previewHtml
-    + '<div class="file-row"><span>DWG (CAD): <span class="file-name' + (dwg ? '' : ' empty') + '">' + (dwg ? esc(dwg.name) : 'none uploaded') + '</span></span>'
-    + '<button class="file-link-btn" onclick="pickAndUpload(&#39;' + num + '&#39;,&#39;' + dwgKind + '&#39;)">' + (dwg ? 'Replace' : 'Upload DWG') + '</button></div>'
-    + '<div class="file-btn-row">'
-    + '<button class="file-btn' + (draw ? '' : ' disabled') + '" onclick="downloadFile(&#39;' + num + '&#39;,&#39;' + drawKind + '&#39;)">&#x2B07; Download Drawing</button>'
-    + '<button class="file-btn secondary' + (dwg ? '' : ' disabled') + '" onclick="downloadFile(&#39;' + num + '&#39;,&#39;' + dwgKind + '&#39;)">&#x2B07; Download DWG</button>'
-    + '</div>'
-    + '<div class="file-status" id="status-' + drawKind + '-' + num + '"></div>'
+    + '<div class="file-btn-row">' + btns + '</div>'
     + '</div></div>';
 }
 
 function certCardHtml(f, num, title, certKind) {
   var cert = fileMeta(f, certKind);
-  var certZone = cert
-    ? '<div class="file-row"><span>Packet: <span class="file-name">' + esc(cert.name) + '</span></span>'
-      + '<button class="file-link-btn" onclick="pickAndUpload(&#39;' + num + '&#39;,&#39;' + certKind + '&#39;)">Replace</button></div>'
-    : '<div class="file-dropzone" onclick="pickAndUpload(&#39;' + num + '&#39;,&#39;' + certKind + '&#39;)"><span class="dz-icon">&#x1F4E6;</span>Click to upload ' + esc(title) + '<br><span style="font-size:11px">.zip archive</span></div>';
+  var zone = cert
+    ? '<div class="file-linked"><span class="dz-icon">&#x1F4E6;</span><span>Packet linked</span></div>'
+    : '<div class="file-empty"><span class="dz-icon">&#x1F4E6;</span>No packet linked yet<br><span style="font-size:11px">Paste the .zip URL in the fleet sheet</span></div>';
   return '<div class="section-card">'
     + '<div class="sc-header cert">&#x1F4CB;&nbsp; ' + esc(title) + '</div>'
     + '<div class="file-body">'
-    + certZone
+    + zone
     + '<div class="file-btn-row">'
     + '<button class="file-btn' + (cert ? '' : ' disabled') + '" onclick="downloadFile(&#39;' + num + '&#39;,&#39;' + certKind + '&#39;)">&#x2B07; Download ' + esc(title) + '</button>'
-    + '</div>'
-    + '<div class="file-status" id="status-' + certKind + '-' + num + '"></div>'
-    + '</div></div>';
+    + '</div></div></div>';
 }
 
 function statusKindFor(kind) {
