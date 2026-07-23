@@ -814,6 +814,7 @@ var IRON_COLORS = { Deployed:'#F4A62A', Complete:'#2E9E4F', Completed:'#2E9E4F',
 var ironData = null;
 var ironSub = (typeof localStorage!=='undefined' && localStorage.getItem('evo-iron-sub-sandbox')) || 'deployed';
 var consumHeaders = null, consumRows = null, consumSnapshot = false, consumErr = '', consumFilter = '', consumNeedOnly = false;
+var fleetTries = 0;
 const UPLOAD_URL = ''; // SANDBOX: set to the deployed Apps Script upload endpoint to enable persistent, shared file storage
 
 // ============================================================
@@ -874,6 +875,26 @@ function sanitizeData(obj){
   return cleanVal(obj);
 }
 
+// fetch with a hard timeout so a slow/unreachable source fails fast instead of
+// spinning forever. The underlying request may still settle; we ignore it.
+function fetchT(url, ms, opts){
+  return Promise.race([
+    fetch(url, opts || { cache:'no-store' }),
+    new Promise(function(_, rej){ setTimeout(function(){ rej(new Error('Request timed out')); }, ms || 12000); })
+  ]);
+}
+
+// Clean, actionable failure card for the schedule (never an eternal spinner).
+function fleetErrorUI(){
+  var el = document.getElementById('summaryCards');
+  if (el) el.innerHTML = '<div class="no-data" style="grid-column:1/-1">'
+    + '<div class="no-data-icon">&#128246;</div>'
+    + '<p style="margin-bottom:2px">Couldn’t reach the live schedule right now.</p>'
+    + '<p style="font-size:12px;color:var(--text-secondary)">Check the connection, then try again.</p>'
+    + '<button onclick="refreshData()" style="margin-top:14px;padding:8px 18px;border:1px solid var(--primary);background:var(--primary);color:#fff;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer">&#8635; Try again</button>'
+    + '</div>';
+}
+
 function refreshData() {
   const btn = document.getElementById('refreshBtn');
   btn.classList.add('spinning');
@@ -887,20 +908,34 @@ function refreshData() {
     return;
   }
 
-  setStatus('loading', '⏳ Fetching live data from Google Sheets…');
-  fetch(API_URL)
+  setStatus('loading', '⏳ Loading live schedule…');
+  fetchT(API_URL, 12000)
     .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
     .then(data => {
       if (data.error) throw new Error(data.error);
       appData = sanitizeData(data);
+      fleetTries = 0;
       clearStatus();
       renderAll();
       const ts = new Date(data.lastUpdated);
-      document.getElementById('lastUpdated').innerHTML =
+      if (!isNaN(ts.getTime())) document.getElementById('lastUpdated').innerHTML =
         'Updated ' + ts.toLocaleDateString('en-US',{month:'short',day:'numeric'}) +
         ' ' + ts.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
     })
-    .catch(err => setStatus('error', '❌ ' + err.message + ' — check API_URL in the HTML file.'))
+    .catch(err => {
+      if (appData) {
+        // Data already on screen — keep showing it; the 5-min cycle will retry.
+        setStatus('warning', '⚠️ Showing last synced data — auto-refresh will retry shortly.');
+      } else if (fleetTries < 3) {
+        // Initial load failed (e.g. cold Apps Script) — auto-retry with backoff.
+        fleetTries++;
+        setStatus('loading', '⏳ Reconnecting to live data… (attempt ' + fleetTries + ' of 3)');
+        setTimeout(refreshData, 3000 * fleetTries);
+      } else {
+        setStatus('error', '⚠️ Couldn’t reach live data right now.');
+        fleetErrorUI();
+      }
+    })
     .finally(() => btn.classList.remove('spinning'));
 }
 
@@ -968,7 +1003,7 @@ function kpiStrip(cards){
 
 function loadConsumables() {
   if (!document.getElementById('panel-consumables')) return;
-  fetch(CONSUMABLES_CSV, { cache:'no-store' })
+  fetchT(CONSUMABLES_CSV, 10000)
     .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); })
     .then(function(txt){
       var rows = parseCSV_(txt).filter(function(r){ return r.some(function(c){ return (c||'').trim()!==''; }); });
@@ -1085,7 +1120,7 @@ function loadIron(){
   var keys=Object.keys(IRON_TABS);
   Promise.all(keys.map(function(k){
     var url='https://docs.google.com/spreadsheets/d/'+IRON_SHEET+'/export?format=csv&gid='+IRON_TABS[k];
-    return fetch(url,{cache:'no-store'}).then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); }).then(function(t){ return parseCSV_(t); });
+    return fetchT(url,12000).then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); }).then(function(t){ return parseCSV_(t); });
   })).then(function(res){
     ironData={ deployed:parseDeployed_(res[0]), rebuild:parseRebuild_(res[1]), available:parseAvailable_(res[2]), totals:parseTotals_(res[3]), live:true };
     renderIron();
@@ -1165,11 +1200,13 @@ function renderIron(){
     if(ironSub==='processing') insight='<b>'+inProc+'</b> assets in the shop · <b>'+complete+'</b> complete &amp; ready to deploy';
     else if(ironSub==='available') insight='Most available: <b>'+(topAv?esc(topAv.type)+'</b> ('+topAv.avail+')':'&mdash;</b>')+' · <b>'+availSum+'</b> units on the shelf';
     else if(ironSub==='overview') insight='Deployed is <b>'+depPct+'%</b> of the <b>'+total+'</b>-asset fleet';
-    else insight='<b>'+sumDep+'</b> units deployed across <b>'+(dep.fleets||[]).length+'</b> fleets — darker cells mean more units';
+    else insight='Equipment placement across <b>'+(dep.fleets||[]).length+'</b> fleets — darker cells mean more units';
     cap='<div class="inv-cap">Source: EWS Asset Tracking v3.0 (Google Sheets) · live, refreshes with the dashboard</div>';
   }
   var body;
-  if(!ironData || ironData.error) body='<div class="no-data"><div class="no-data-icon">&#128295;</div><p>'+((ironData&&ironData.error)?'Could not load the asset sheet.':'Loading iron inventory…')+'</p></div>';
+  if(!ironData || ironData.error) body = (ironData && ironData.error)
+    ? '<div class="no-data"><div class="no-data-icon">&#128246;</div><p style="margin-bottom:2px">Couldn’t reach the asset data right now.</p><p style="font-size:12px;color:var(--text-secondary)">Check the connection, then try again.</p><button onclick="loadIron()" style="margin-top:12px;padding:7px 16px;border:1px solid var(--primary);background:var(--primary);color:#fff;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer">&#8635; Try again</button></div>'
+    : '<div class="no-data"><div class="no-data-icon">&#128295;</div><p>Loading iron inventory…</p></div>';
   else if(ironSub==='processing') body=renderIronProcessing();
   else if(ironSub==='available') body=renderIronAvailable();
   else if(ironSub==='overview') body=renderIronOverview();
