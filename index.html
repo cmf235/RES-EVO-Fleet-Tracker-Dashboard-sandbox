@@ -416,6 +416,17 @@
     .file-linked .dz-icon { font-size: 22px; }
     .drawing-preview.broken img { display: none; }
     .drawing-preview.broken::after { content: 'Drawing link couldn’t load'; display: block; padding: 24px; text-align: center; color: var(--text-secondary); font-size: 12px; border: 2px dashed var(--border); border-radius: var(--radius); background: var(--surface2); }
+    .pad-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 14px 18px; margin-bottom: 20px; }
+    .pad-box-title { font-size: 11px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 10px; }
+    .pad-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 560px) { .pad-grid { grid-template-columns: 1fr; } }
+    .pad-cell { border-left: 4px solid var(--ctx); padding: 9px 14px; background: var(--surface2); border-radius: 8px; }
+    .pad-cell.current { border-left-color: var(--rigdown); }
+    .pad-cell.next { border-left-color: var(--rigup); }
+    .pad-cell-lbl { font-size: 10px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--text-secondary); }
+    .pad-cell-pad { font-size: 20px; font-weight: 800; line-height: 1.15; margin-top: 3px; }
+    .pad-cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 3px; }
+    .pad-empty { color: var(--text-secondary); font-weight: 400; font-size: 15px; }
     .file-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; font-size: 13px; }
     .file-row .file-name { font-weight: 600; word-break: break-all; }
     .file-row .file-name.empty { font-weight: 400; font-style: italic; color: var(--text-secondary); }
@@ -1993,6 +2004,27 @@ function svcChips(items) {
   return html;
 }
 
+// Pad Info box — current pad (rig down) vs next pad (rig up), from the sheet feed.
+function padInfoBox(f) {
+  var rd = f.rigDown || {}, ru = f.rigUp || {};
+  function cell(lbl, loc, pad, dateVal, tone) {
+    var dstr = dateVal ? (fmt(dateVal) || dateVal) : '';
+    var c = dateVal ? chip(dateVal) : '';
+    var sub = [loc ? esc(loc) : '', dstr].filter(Boolean).join(' · ');
+    return '<div class="pad-cell ' + tone + '">'
+      + '<div class="pad-cell-lbl">' + lbl + '</div>'
+      + '<div class="pad-cell-pad">' + (pad ? esc(pad) : '<span class="pad-empty">Not set</span>') + '</div>'
+      + '<div class="pad-cell-sub">' + sub + (c ? ' ' + c : '') + '</div>'
+      + '</div>';
+  }
+  return '<div class="pad-box">'
+    + '<div class="pad-box-title">&#128205; Pad Info</div>'
+    + '<div class="pad-grid">'
+    + cell('Current Pad &middot; Rig Down', rd.location, rd.pad, rd.date, 'current')
+    + cell('Next Pad &middot; Rig Up',      ru.location, ru.pad, ru.date, 'next')
+    + '</div></div>';
+}
+
 function fleetPanel(f) {
   var color = FLEET_COLORS[f.num] || '#1565C0';
   var rd = f.rigDown, ru = f.rigUp;
@@ -2002,6 +2034,7 @@ function fleetPanel(f) {
     + '<div class="fleet-page-sub">Detailed schedule · Click any card to return to summary</div>'
     + fleetNextLine(f)
     + '</div></div>'
+    + padInfoBox(f)
     + '<div class="fleet-detail-grid">'
     + sideCard(ru, '🟢&nbsp; Rig Up',   'rigup')
     + sideCard(rd, '🔴&nbsp; Rig Down', 'rigdown')
