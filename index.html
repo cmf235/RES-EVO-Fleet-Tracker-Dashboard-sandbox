@@ -934,7 +934,8 @@ function refreshData() {
   }
 
   setStatus('loading', '⏳ Loading live schedule…');
-  fetchT(API_URL, 12000)
+  // Feed is heavy (Apps Script reads each fleet tab cell-by-cell, ~20s), so allow ample time.
+  fetchT(API_URL, 35000)
     .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
     .then(data => {
       if (data.error) throw new Error(data.error);
