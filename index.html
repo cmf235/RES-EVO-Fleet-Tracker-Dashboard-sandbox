@@ -427,6 +427,14 @@
     .pad-cell-pad { font-size: 20px; font-weight: 800; line-height: 1.15; margin-top: 3px; }
     .pad-cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 3px; }
     .pad-empty { color: var(--text-secondary); font-weight: 400; font-size: 15px; }
+    .pad-x-wrap { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--border); display: grid; gap: 5px; }
+    .pad-x { display: grid; grid-template-columns: 64px 1fr; gap: 8px; align-items: baseline; font-size: 12px; }
+    .pad-x-lbl { font-size: 10px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--text-secondary); }
+    .pad-x-val { color: var(--text); word-break: break-word; }
+    .pad-x-val a { color: var(--rigup); font-weight: 700; text-decoration: none; }
+    .pad-x-val a:hover { text-decoration: underline; }
+    .pad-cell.current .pad-x-val a { color: var(--rigdown); }
+    .pad-x-val.gps { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; }
     .file-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; font-size: 13px; }
     .file-row .file-name { font-weight: 600; word-break: break-all; }
     .file-row .file-name.empty { font-weight: 400; font-style: italic; color: var(--text-secondary); }
@@ -2006,21 +2014,37 @@ function svcChips(items) {
 // Pad Info box — current pad (rig down) vs next pad (rig up), from the sheet feed.
 function padInfoBox(f) {
   var rd = f.rigDown || {}, ru = f.rigUp || {};
-  function cell(lbl, loc, pad, dateVal, tone) {
-    var dstr = dateVal ? (fmt(dateVal) || dateVal) : '';
-    var c = dateVal ? chip(dateVal) : '';
-    var sub = [loc ? esc(loc) : '', dstr].filter(Boolean).join(' · ');
+  // Address / Maps Link / GPS come from the "Rig Up/Down Pad Info" blocks at the
+  // bottom of each fleet tab (surfaced via the Apps Script). Hidden until present.
+  function padExtras(o) {
+    var rows = '';
+    if (o.address)  rows += '<div class="pad-x"><span class="pad-x-lbl">Address</span><span class="pad-x-val">' + esc(o.address) + '</span></div>';
+    if (o.mapsLink) {
+      var ml = String(o.mapsLink);
+      var inner = /^https?:\/\//i.test(ml)
+        ? '<a href="' + esc(ml) + '" target="_blank" rel="noopener">Open in Maps &#8599;</a>'
+        : esc(ml);
+      rows += '<div class="pad-x"><span class="pad-x-lbl">Maps</span><span class="pad-x-val">' + inner + '</span></div>';
+    }
+    if (o.gps)      rows += '<div class="pad-x"><span class="pad-x-lbl">GPS</span><span class="pad-x-val gps">' + esc(o.gps) + '</span></div>';
+    return rows ? '<div class="pad-x-wrap">' + rows + '</div>' : '';
+  }
+  function cell(lbl, o, tone) {
+    var dstr = o.date ? (fmt(o.date) || o.date) : '';
+    var c = o.date ? chip(o.date) : '';
+    var sub = [o.location ? esc(o.location) : '', dstr].filter(Boolean).join(' · ');
     return '<div class="pad-cell ' + tone + '">'
       + '<div class="pad-cell-lbl">' + lbl + '</div>'
-      + '<div class="pad-cell-pad">' + (pad ? esc(pad) : '<span class="pad-empty">Not set</span>') + '</div>'
+      + '<div class="pad-cell-pad">' + (o.pad ? esc(o.pad) : '<span class="pad-empty">Not set</span>') + '</div>'
       + '<div class="pad-cell-sub">' + sub + (c ? ' ' + c : '') + '</div>'
+      + padExtras(o)
       + '</div>';
   }
   return '<div class="pad-box">'
     + '<div class="pad-box-title">&#128205; Pad Info</div>'
     + '<div class="pad-grid">'
-    + cell('Current Pad &middot; Rig Down', rd.location, rd.pad, rd.date, 'current')
-    + cell('Next Pad &middot; Rig Up',      ru.location, ru.pad, ru.date, 'next')
+    + cell('Next Pad &middot; Rig Up',      ru, 'next')
+    + cell('Current Pad &middot; Rig Down', rd, 'current')
     + '</div></div>';
 }
 
