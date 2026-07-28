@@ -1321,9 +1321,8 @@ function renderIronOverview(){
     var b=rb.map(function(row){ return '<tr>'+cols.map(function(c,i){ return i===0?'<td>'+esc(row.type)+'</td>':'<td class="ic">'+(row[c.k]||0)+'</td>'; }).join('')+'</tr>'; }).join('');
     return '<div class="iron-tbl-card"><div class="iron-tbl-title">'+title+'</div><div class="inv-table-wrap"><table class="inv-table"><thead><tr>'+head+'</tr></thead><tbody>'+b+'</tbody></table></div></div>';
   }
-  var tA=tbl('Count / Complete / Paint',[{h:'Equipment',k:'type'},{h:'Count',k:'count'},{h:'Complete',k:'complete'},{h:'Paint',k:'paint'}]);
-  var tB=tbl('Rebuild / Machine / Unstarted',[{h:'Equipment',k:'type'},{h:'Rebuild',k:'rebuild'},{h:'Machine',k:'machine'},{h:'Not Started',k:'notStarted'}]);
-  return card+'<div class="iron-tbl-grid">'+tA+tB+'</div>';
+  var tAll=tbl('Count & rebuild stages by equipment',[{h:'Equipment',k:'type'},{h:'Count',k:'count'},{h:'Complete',k:'complete'},{h:'Paint',k:'paint'},{h:'Rebuild',k:'rebuild'},{h:'Machine',k:'machine'},{h:'Not Started',k:'notStarted'}]);
+  return card+tAll;
 }
 
 function renderAll() {
