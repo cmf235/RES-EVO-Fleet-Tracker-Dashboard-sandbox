@@ -734,6 +734,7 @@
 <nav class="nav" id="mainNav">
   <div class="nav-tab active" data-panel="summary"  onclick="showPanel('summary')">📊 Weekly Summary</div>
   <div class="nav-tab"        data-panel="calendar" onclick="showPanel('calendar')">📅 Calendar</div>
+  <div class="nav-tab"        data-panel="fleet-1"  onclick="showPanel('fleet-1')"><span class="nav-dot" style="background:#1565C0"></span>Fleet #1</div>
   <div class="nav-tab"        data-panel="fleet-6"  onclick="showPanel('fleet-6')"><span class="nav-dot" style="background:#2E7D32"></span>Fleet #6</div>
   <div class="nav-tab"        data-panel="fleet-9"  onclick="showPanel('fleet-9')"><span class="nav-dot" style="background:#6A1B9A"></span>Fleet #9</div>
   <div class="nav-tab"        data-panel="fleet-13" onclick="showPanel('fleet-13')"><span class="nav-dot" style="background:#00695C"></span>Fleet #13</div>
@@ -804,6 +805,7 @@
   </div>
 
   <!-- FLEET PANELS -->
+  <div class="panel" id="panel-fleet-1"><div class="no-data"><div class="no-data-icon">⏳</div><p>Loading…</p></div></div>
   <div class="panel" id="panel-fleet-6"><div class="no-data"><div class="no-data-icon">⏳</div><p>Loading…</p></div></div>
   <div class="panel" id="panel-fleet-9"><div class="no-data"><div class="no-data-icon">⏳</div><p>Loading…</p></div></div>
   <div class="panel" id="panel-fleet-13"><div class="no-data"><div class="no-data-icon">⏳</div><p>Loading…</p></div></div>
@@ -826,8 +828,12 @@ const CONFIG = {
   refreshMs: 5 * 60 * 1000,
   billingExecUrl: 'https://script.google.com/macros/s/AKfycbxsF1tv_QxGWMUxpaZJiKsGRRMSj5Zlb05bLml6QRglE6T5X9Uq5Q22mjYnpdxbc3Ql/exec',
   invoicePdfFolder: 'https://drive.google.com/drive/folders/1uMR9dqS52Z4ZqUAqmIaLzUqLhpmmtAZY',
-  fleetSheetUrl: 'https://docs.google.com/spreadsheets/d/1Zc_zAnGEA-EUG-y73cCiU_tvPEYgA-tsWXVTgpV5QFs/edit'
+  fleetSheetUrl: 'https://docs.google.com/spreadsheets/d/1Zc_zAnGEA-EUG-y73cCiU_tvPEYgA-tsWXVTgpV5QFs/edit',
+  // Fleets kept OFF the dashboard (tab, summary, calendar, panels). Fleet #1 temporarily un-hidden 2026-11-02 — add '1' back to re-hide it.
+  hiddenFleets: ['10']
 };
+function isFleetHidden_(n){ return (CONFIG.hiddenFleets || []).indexOf(String(n)) !== -1; }
+try { (CONFIG.hiddenFleets || []).forEach(function(n){ var t = document.querySelector('.nav-tab[data-panel="fleet-' + n + '"]'); if (t) t.style.display = 'none'; }); } catch(e){}
 function sheetCsv(id, gid){ return 'https://docs.google.com/spreadsheets/d/' + id + '/export?format=csv&gid=' + gid; }
 const API_URL = CONFIG.apiUrl;
 const CONSUMABLES_CSV = sheetCsv(CONFIG.consumablesId, CONFIG.consumablesGid);
@@ -844,7 +850,7 @@ var billingUnsigned = null, billingErr = '';
 //  CONSTANTS
 // ============================================================
 const FLEET_COLORS = {
-  '6':'#2E7D32','9':'#6A1B9A',
+  '1':'#1565C0','6':'#2E7D32','9':'#6A1B9A',
   '10':'#E65100','13':'#00695C','15':'#AD1457'
 };
 const EV_COLORS = {
@@ -1601,9 +1607,9 @@ function renderIronOverview(){
 function renderAll() {
   if (!appData) return;
   if (_activeSource() !== 'fleet') { _dirty.fleet = true; return; }
-  // SANDBOX: Fleet #1 removed from this experimentation copy
+  // Hidden fleets (CONFIG.hiddenFleets) are dropped from every view
   if (Array.isArray(appData.fleets)) {
-    appData.fleets = appData.fleets.filter(f => String(f.num) !== '1' && String(f.num) !== '10');
+    appData.fleets = appData.fleets.filter(f => !isFleetHidden_(f.num));
   }
   renderSummary();
   renderCalendar();
@@ -2276,7 +2282,7 @@ function dRangeRow(label, rangeObj) {
 //  PANEL / TAB SWITCHING
 // ============================================================
 function showPanel(id) {
-  if (!document.getElementById('panel-'+id)) id = 'summary';
+  if (!document.getElementById('panel-'+id) || (/^fleet-/.test(id) && isFleetHidden_(id.slice(6)))) id = 'summary';
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => { t.classList.remove('active'); t.removeAttribute('aria-current'); });
   const panel = document.getElementById('panel-'+id);
